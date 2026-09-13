@@ -8,6 +8,8 @@ from alembic import context
 from database import DATABASE_URL
 from models import Base
 
+DATABASE_URL = DATABASE_URL.replace("-pooler", "")
+
 config = context.config
 config.set_main_option("sqlalchemy.url", DATABASE_URL)
 
@@ -22,7 +24,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
-        render_as_batch=True,
+        compare_type=True,
     )
 
     with context.begin_transaction():
@@ -33,7 +35,7 @@ def do_run_migrations(connection) -> None:
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
-        render_as_batch=True,
+        compare_type=True,
     )
 
     with context.begin_transaction():
@@ -41,13 +43,17 @@ def do_run_migrations(connection) -> None:
 
 
 async def run_migrations_online() -> None:
+    """Run migrations in 'online' mode."""
     connectable = create_async_engine(
         DATABASE_URL,
         poolclass=pool.NullPool,
+        connect_args={"ssl": "require"}
     )
 
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
+
+    await connectable.dispose()
 
 
 if context.is_offline_mode():

@@ -1,4 +1,4 @@
 .idea/
 **__pycache__/
-#.env Does not contain classified information
+.env
 *.db
