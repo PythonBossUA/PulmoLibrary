@@ -1,0 +1,255 @@
+/* ============ БАЗА ============ */
+:root{
+  --paper:#f2e8d3; --paper2:#eadfc4; --card:#f8f0dd;
+  --ink:#2a2318; --ink2:#6a5a41;
+  --red:#a83c2b; --red-d:#6e2416;
+  --gold:#c08a2d; --green:#47624a; --green-d:#2c3d30;
+  --blue:#3e5a6e; --wood:#7a4b26; --wood-d:#4a2f16;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  font-family:'Literata',Georgia,serif; color:var(--ink); background:var(--paper);
+  background-image:radial-gradient(1200px 500px at 85% -10%, rgba(192,138,45,.10), transparent 60%),
+                   radial-gradient(900px 500px at -10% 110%, rgba(71,98,74,.10), transparent 60%);
+  line-height:1.6; overflow-x:hidden;
+}
+/* паперове зерно */
+body::after{
+  content:''; position:fixed; inset:0; pointer-events:none; z-index:99; opacity:.06; mix-blend-mode:multiply;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E");
+}
+h1,h2,h3{font-family:'Forum',serif; font-weight:400; line-height:1.12}
+a{color:inherit}
+img{display:block; max-width:100%}
+button{font-family:inherit}
+:focus-visible{outline:3px solid var(--gold); outline-offset:2px}
+.wrap{max-width:1180px; margin:0 auto; padding:0 clamp(16px,4vw,44px)}
+.hand{font-family:'Caveat',cursive}
+
+/* вишивана роздільна смуга між чотирма розділами */
+.vysh{height:26px; background-repeat:repeat-x; background-position:center;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='16' viewBox='0 0 26 16'%3E%3Cg stroke='%23a83c2b' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M2 4l5 6M7 4l-5 6'/%3E%3Cpath d='M19 4l5 6M24 4l-5 6'/%3E%3C/g%3E%3Cpath d='M13 4l3 4-3 4-3-4z' fill='%232f2a1e'/%3E%3C/svg%3E");
+  border-top:1px solid rgba(42,35,24,.4); border-bottom:1px solid rgba(42,35,24,.4);}
+
+/* поява при скролі */
+.rev{opacity:0; transform:translateY(26px); transition:opacity .8s ease, transform .8s cubic-bezier(.2,.7,.2,1)}
+.rev.in{opacity:1; transform:none}
+
+/* шапка розділу */
+.sec-head{display:flex; align-items:baseline; gap:16px; flex-wrap:wrap; margin-bottom:14px}
+.sec-num{font-family:'Caveat',cursive; font-size:22px; color:var(--red); border:2px dashed var(--red); padding:1px 12px; transform:rotate(-3deg); white-space:nowrap}
+.sec-head h2{font-size:clamp(28px,4.2vw,48px); letter-spacing:.02em}
+.sec-sub{color:var(--ink2); max-width:62ch; margin-bottom:34px; font-size:16.5px}
+
+/* ============ ВЕРХНЯ СМУГА ============ */
+.topstrip{border-bottom:2px solid var(--ink); font-size:12.5px; letter-spacing:.14em; text-transform:uppercase}
+.topstrip .wrap{display:flex; justify-content:space-between; align-items:center; gap:14px; padding-top:9px; padding-bottom:9px; flex-wrap:wrap}
+.topstrip nav{display:flex; gap:18px; flex-wrap:wrap}
+.topstrip nav a{text-decoration:none; position:relative; padding:2px 0}
+.topstrip nav a::after{content:''; position:absolute; left:0; right:0; bottom:-3px; border-bottom:2px dashed var(--red); transform:scaleX(0); transform-origin:left; transition:transform .3s}
+.topstrip nav a:hover::after{transform:scaleX(1)}
+
+/* ============ МАСТГОЛОВКА: слово з корінців ============ */
+.mast{padding:46px 0 40px; position:relative}
+.mast .wrap{display:grid; grid-template-columns:1fr auto; gap:30px; align-items:center}
+.title-shelf{display:flex; gap:7px; align-items:flex-end; flex-wrap:wrap; padding-bottom:14px; border-bottom:10px solid var(--wood); box-shadow:0 10px 14px -8px rgba(42,35,24,.55)}
+.tsp{width:clamp(36px,5.6vw,58px); height:clamp(74px,10.5vw,108px); display:grid; place-items:center;
+  font-family:'Forum',serif; font-size:clamp(24px,3.8vw,40px); color:#f3e7cd; border-radius:3px 3px 2px 2px;
+  transform:rotate(var(--r,0deg)); transform-origin:bottom center;
+  box-shadow:inset -3px 0 6px rgba(0,0,0,.3), inset 2px 0 3px rgba(255,255,255,.18), 2px 3px 4px rgba(42,35,24,.3);
+  position:relative; animation:drop .7s cubic-bezier(.2,1.3,.4,1) both; animation-delay:calc(var(--i)*70ms)}
+.tsp::before{content:''; position:absolute; left:14%; right:14%; top:14px; height:2px; background:rgba(243,231,205,.55)}
+.tsp::after{content:''; position:absolute; left:14%; right:14%; bottom:12px; height:2px; background:rgba(243,231,205,.4)}
+@keyframes drop{from{transform:translateY(-70px) rotate(var(--r,0deg)); opacity:0}}
+.tsp.out{background:transparent!important; border:2px dashed var(--ink2); color:var(--ink2); box-shadow:none; animation-delay:.9s}
+.tsp.out::before,.tsp.out::after{display:none}
+.mast-note{position:relative; margin-top:20px; font-size:21px; color:var(--ink2); transform:rotate(-1.4deg)}
+.mast-note b{color:var(--red)}
+.mask{overflow:hidden}
+.mask>span{display:block; transform:translateY(115%); animation:rise .9s cubic-bezier(.2,.7,.2,1) forwards; animation-delay:var(--d,0s)}
+@keyframes rise{to{transform:none}}
+.mast-title{font-size:clamp(30px,5vw,58px); margin-top:30px; letter-spacing:.02em}
+.mast-title .l1{display:block; font-size:.42em; letter-spacing:.42em; text-transform:uppercase; color:var(--red); margin-bottom:6px; font-family:'Literata',serif; font-weight:600}
+/* обертовий штамп */
+.stampwrap{position:relative; width:clamp(130px,16vw,168px); height:clamp(130px,16vw,168px)}
+.stampwrap svg.rot{position:absolute; inset:0; animation:spin 42s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.stampwrap .yr{position:absolute; inset:0; display:grid; place-items:center; font-family:'Forum',serif; font-size:clamp(26px,3vw,34px); color:var(--red)}
+
+/* ============ РОЗДІЛ 1: ФОРМУЛЯР + 3D ============ */
+section{padding:64px 0 74px}
+#register .cols{display:grid; grid-template-columns:minmax(320px,5fr) 7fr; gap:clamp(24px,4vw,56px); align-items:start}
+.formula{background:var(--card); border:2px solid var(--ink); box-shadow:8px 8px 0 rgba(42,35,24,.16); padding:clamp(20px,3vw,34px); position:relative}
+.formula::before{content:''; position:absolute; inset:7px; border:2px dashed rgba(106,90,65,.55); pointer-events:none}
+.formula .fh{display:flex; justify-content:space-between; align-items:center; gap:10px; border-bottom:2px solid var(--ink); padding-bottom:12px; margin-bottom:20px}
+.formula .fh h3{font-size:24px; letter-spacing:.06em; text-transform:uppercase}
+.mini-stamp{font-family:'Caveat',cursive; font-size:18px; color:var(--red); border:2px solid var(--red); padding:0 10px; transform:rotate(4deg); white-space:nowrap}
+.field{margin-bottom:18px; position:relative}
+.field label{display:block; font-size:11px; letter-spacing:.22em; text-transform:uppercase; color:var(--ink2); margin-bottom:5px; font-weight:600}
+.field input[type=text],.field input[type=tel]{width:100%; background:transparent; border:none; border-bottom:2px solid #a3916f; font:500 17.5px/1.4 'Literata',serif; padding:6px 2px; color:var(--ink); transition:border-color .25s, background .25s}
+.field input:focus{outline:none; border-color:var(--red); background:rgba(168,60,43,.06)}
+.field.err input{border-color:var(--red); animation:shake .4s}
+@keyframes shake{20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+.chk{display:flex; gap:11px; align-items:center; cursor:pointer; font-size:15.5px; margin:20px 0 24px; user-select:none}
+.chk input{position:absolute; opacity:0}
+.chk .box{flex:0 0 19px; width:19px; height:19px; border:2px solid var(--ink); display:grid; place-items:center; background:#fff8ea; transition:.2s}
+.chk input:checked + .box{background:var(--red); border-color:var(--red-d)}
+.chk input:checked + .box::after{content:'✕'; color:#f7ecd6; font-size:12px; font-weight:700}
+.chk input:focus-visible + .box{outline:3px solid var(--gold); outline-offset:2px}
+.btn{font-family:'Forum',serif; text-transform:uppercase; letter-spacing:.14em; font-size:15px; background:var(--red); color:#f7ecd6; border:2px solid var(--red-d); padding:14px 26px; cursor:pointer; box-shadow:4px 4px 0 var(--ink); transition:transform .18s, box-shadow .18s, background .18s}
+.btn:hover{transform:translate(-2px,-2px); box-shadow:6px 6px 0 var(--ink); background:#b5452f}
+.btn:active{transform:translate(2px,2px); box-shadow:1px 1px 0 var(--ink)}
+.form-note{margin-top:16px; font-size:20px; color:var(--ink2); transform:rotate(-1deg)}
+/* результат */
+.form-result{display:none; text-align:left}
+.formula.done .form-body{display:none}
+.formula.done .form-result{display:block; animation:fadeup .5s ease both}
+@keyframes fadeup{from{opacity:0; transform:translateY(14px)}}
+.form-result h3{font-size:26px; margin-bottom:8px}
+.big-stamp{font-family:'Forum',serif; letter-spacing:.18em; text-transform:uppercase; color:var(--red); border:4px double var(--red); padding:9px 20px; transform:rotate(-7deg); display:inline-block; margin:16px 0 18px; animation:stampIn .55s cubic-bezier(.2,1.6,.35,1) both; font-size:17px}
+@keyframes stampIn{from{transform:rotate(-26deg) scale(2.3); opacity:0}}
+.form-result p{margin-bottom:8px}
+.linky{background:none; border:none; cursor:pointer; font:600 15px 'Literata',serif; color:var(--red); text-decoration:underline dashed; margin-top:14px}
+/* ---- 3D сцена ---- */
+.scene{perspective:1050px; max-width:600px; margin-left:auto}
+.scene-core{position:relative; height:clamp(340px,38vw,470px); transform-style:preserve-3d; animation:sway 8.5s ease-in-out infinite; transition:transform .12s ease-out; cursor:grab}
+.scene-core.held{animation:none}
+@keyframes sway{0%,100%{transform:rotateX(2deg) rotateY(-3.5deg)}50%{transform:rotateX(-2deg) rotateY(3.5deg)}}
+.l-wood{position:absolute; inset:0; transform:translateZ(-42px) scale(1.06); border-radius:6px;
+  background:repeating-linear-gradient(90deg, rgba(0,0,0,.16) 0 2px, transparent 2px 86px), linear-gradient(135deg,#6b4423,#4a2f16);
+  box-shadow:0 34px 64px rgba(30,20,5,.45)}
+.l-mat{position:absolute; inset:3.5%; transform:translateZ(8px); border:13px solid #f3e9d2; box-shadow:0 0 0 2px rgba(90,70,40,.35), inset 0 0 24px rgba(42,35,24,.35)}
+.l-photo{position:absolute; inset:9%; transform:translateZ(34px); background:url('https://picsum.photos/seed/village-library-shelves/900/680') center/cover; border:6px solid #fff8ea; box-shadow:0 14px 26px rgba(30,20,5,.4); filter:sepia(.28) contrast(1.04) saturate(.92)}
+.l-photo::after{content:''; position:absolute; inset:0; background:linear-gradient(160deg, rgba(244,213,138,.16), transparent 45%), radial-gradient(closest-side, transparent 62%, rgba(42,35,24,.28))}
+.l-spines{position:absolute; left:6%; right:6%; bottom:4.5%; transform:translateZ(64px); display:flex; gap:4px; align-items:flex-end; filter:drop-shadow(0 8px 8px rgba(20,12,2,.45))}
+.l-spines i{display:block; border-radius:2px 2px 1px 1px; box-shadow:inset -2px 0 4px rgba(0,0,0,.3)}
+.l-tag{position:absolute; top:5%; right:6%; transform:translateZ(92px) rotate(7deg); background:#f7efdd; border:2px solid var(--ink); padding:7px 13px 8px; font-family:'Caveat',cursive; font-size:21px; line-height:1.15; box-shadow:3px 4px 0 rgba(20,12,2,.3)}
+.l-tag::before{content:''; position:absolute; top:-30px; left:22px; width:2px; height:30px; background:var(--ink)}
+.l-tag::after{content:''; position:absolute; top:-5px; left:19px; width:8px; height:8px; border:2px solid var(--ink); border-radius:50%; background:var(--card)}
+.obook{position:absolute; left:7%; top:9%; transform:translateZ(78px) rotate(-6deg); width:150px; height:30px; filter:drop-shadow(0 12px 8px rgba(20,12,2,.35))}
+.obook::before{content:''; position:absolute; left:-5px; right:-5px; bottom:-4px; height:9px; background:var(--red-d); border-radius:3px}
+.obook i{position:absolute; top:0; width:76px; height:24px; background:repeating-linear-gradient(180deg,#fbf4e2 0 4px,#efe2c4 4px 5px); border:1.5px solid #b7a887}
+.obook i:first-child{left:0; transform-origin:right; transform:rotate(-3deg) skewY(-5deg); border-radius:3px 0 0 3px}
+.obook i:last-child{right:0; transform-origin:left; transform:rotate(3deg) skewY(5deg); border-radius:0 3px 3px 0}
+.dust span{position:absolute; width:5px; height:5px; border-radius:50%; background:radial-gradient(circle,#f4d58a,#c08a2d); opacity:.85; transform:translateZ(var(--z,40px)); animation:floaty var(--t,7s) ease-in-out infinite alternate}
+@keyframes floaty{to{transform:translate3d(9px,-16px,var(--z,40px))}}
+.scene-cap{margin-top:18px; font-size:20px; color:var(--ink2); transform:rotate(.6deg); text-align:right}
+
+/* ============ РОЗДІЛ 2: АЛФАВІТНА ПОЛИЦЯ ============ */
+#catalog{background:var(--paper2)}
+.shelf-tools{display:flex; gap:16px; align-items:center; flex-wrap:wrap; margin-bottom:30px}
+.shelf-tools input{background:var(--card); border:2px solid var(--ink); padding:10px 14px; font:500 16px 'Literata',serif; min-width:250px}
+.legend{display:flex; gap:14px; flex-wrap:wrap; font-size:13.5px; color:var(--ink2)}
+.legend .stamp{font-size:11px}
+.stamp{font-family:'Forum',serif; text-transform:uppercase; letter-spacing:.14em; border:3px double currentColor; padding:3px 10px; transform:rotate(-5deg); display:inline-block; font-size:13px}
+.stamp.ok{color:var(--green)} .stamp.away{color:var(--red)} .stamp.rare{color:var(--gold)}
+.shelf-label{font-family:'Caveat',cursive; font-size:21px; color:var(--ink2); margin:8px 4px 4px}
+.shelf-scroll{overflow-x:auto; padding-bottom:6px; scrollbar-width:thin}
+.shelf-row{display:flex; gap:6px; align-items:flex-end; padding:20px 18px 0; width:max-content; min-width:100%}
+.spine{position:relative; border:none; cursor:pointer; color:#f3e7cd; display:flex; flex-direction:column; align-items:center; padding-top:12px;
+  border-radius:3px 3px 1px 1px; transform:rotate(var(--r,0deg)); transform-origin:bottom center;
+  box-shadow:inset -3px 0 6px rgba(0,0,0,.3), inset 2px 0 3px rgba(255,255,255,.16), 2px 3px 5px rgba(42,35,24,.35);
+  transition:transform .35s cubic-bezier(.22,1.5,.36,1), box-shadow .3s}
+.spine::before{content:''; position:absolute; left:13%; right:13%; top:44px; height:2px; background:rgba(243,231,205,.5); box-shadow:0 7px 0 rgba(243,231,205,.3), 0 -8px 0 rgba(243,231,205,.3)}
+.spine .lt{font-family:'Forum',serif; font-size:22px; line-height:1}
+.spine .ribs{margin-top:auto; width:56%; border-top:2px solid rgba(243,231,205,.45); border-bottom:2px solid rgba(243,231,205,.3); height:7px; margin-bottom:14px}
+.spine.paper{color:#4a3b24}
+.spine.paper::before{background:rgba(74,59,36,.4); box-shadow:none}
+.spine.special{background-image:repeating-linear-gradient(45deg, rgba(0,0,0,.16) 0 6px, transparent 6px 13px)!important}
+.spine:hover,.spine:focus-visible{transform:rotate(0deg) translateY(-15px)}
+.spine.active{transform:rotate(0deg) translateY(-23px); box-shadow:inset -3px 0 6px rgba(0,0,0,.3), 0 0 0 3px var(--gold), 2px 6px 8px rgba(42,35,24,.4)}
+.board{height:17px; background:linear-gradient(#8a5a33,#5f3c1f); border-radius:2px; box-shadow:0 8px 12px rgba(42,35,24,.35); position:relative}
+.board::before,.board::after{content:''; position:absolute; top:100%; width:12px; height:12px; background:#4a2f16; clip-path:polygon(0 0,100% 0,50% 100%)}
+.board::before{left:6%} .board::after{right:6%}
+.shelf-props{align-self:flex-end; margin-left:16px; display:flex; gap:10px; align-items:flex-end; font-size:26px; filter:sepia(.4)}
+/* картотека */
+.catalog-card{display:grid; grid-template-columns:auto 1fr auto; gap:clamp(14px,2.5vw,26px); background:var(--card); border:2px solid var(--ink); box-shadow:7px 7px 0 rgba(42,35,24,.16); padding:clamp(18px,3vw,30px); margin-top:34px; align-items:center}
+.cc-letter{font-family:'Forum',serif; font-size:clamp(58px,8vw,92px); color:var(--red); border-right:2px dashed var(--ink2); padding-right:clamp(12px,2vw,24px); line-height:1}
+.cc-kicker{font-size:11.5px; letter-spacing:.22em; text-transform:uppercase; color:var(--ink2); font-weight:600; margin-bottom:6px}
+.cc-title{font-size:clamp(20px,2.6vw,29px); margin-bottom:4px}
+.cc-author{color:var(--ink2); font-style:italic}
+.cc-note{font-family:'Caveat',cursive; font-size:21px; color:var(--green); margin-top:10px; transform:rotate(-.6deg)}
+.cc-side{text-align:center; display:grid; gap:12px; justify-items:center}
+.cc-place{font-size:13px; color:var(--ink2); border-top:2px dashed var(--ink2); padding-top:8px; letter-spacing:.08em}
+.catalog-card.pop .stamp{animation:stampPop .5s cubic-bezier(.2,1.6,.35,1) both}
+.catalog-card.pop .cc-letter{animation:lpop .45s ease both}
+@keyframes stampPop{from{transform:rotate(-22deg) scale(2); opacity:0}}
+@keyframes lpop{from{transform:scale(1.35); opacity:.4}}
+
+/* ============ РОЗДІЛ 3: ПРО БІБЛІОТЕКУ ============ */
+#about .grid-a{display:grid; grid-template-columns:6fr 5fr; gap:clamp(26px,4vw,60px); align-items:start}
+#about .lead{font-size:17.5px; margin-bottom:16px}
+#about .lead:first-of-type::first-letter{font-family:'Forum',serif; font-size:3.4em; float:left; line-height:.82; padding:4px 10px 0 0; color:var(--red)}
+.timeline{list-style:none; margin-top:30px; border-left:2px dashed var(--ink2); padding-left:24px; display:grid; gap:16px}
+.timeline li{position:relative}
+.timeline li::before{content:''; position:absolute; left:-31px; top:8px; width:11px; height:11px; background:var(--red); transform:rotate(45deg); box-shadow:0 0 0 3px var(--paper)}
+.timeline .yr{font-family:'Forum',serif; font-size:21px; color:var(--red); margin-right:8px}
+.postcards{position:relative; height:600px}
+.pc{position:absolute; background:#fdf7e8; border:1px solid #d8c9a4; padding:12px 12px 10px; box-shadow:0 14px 26px rgba(42,35,24,.28); transition:transform .45s cubic-bezier(.2,.9,.3,1.3), z-index 0s; cursor:pointer}
+.pc:hover{transform:rotate(0deg) scale(1.045)!important; z-index:9}
+.pc .ph{overflow:hidden}
+.pc img{width:100%; height:100%; object-fit:cover; animation:kb 17s ease-in-out infinite alternate}
+@keyframes kb{from{transform:scale(1)}to{transform:scale(1.12) translate(-3%,2%)}}
+.pc figcaption{font-family:'Caveat',cursive; font-size:20px; padding-top:8px; color:var(--ink2); text-align:center}
+.pc::before{content:''; position:absolute; top:-13px; left:50%; margin-left:-42px; width:84px; height:26px; background:rgba(192,138,45,.4); transform:rotate(-3deg); backdrop-filter:none}
+.pc1{top:0; left:2%; width:58%; transform:rotate(-4deg); z-index:1}
+.pc2{top:24%; right:0; width:52%; transform:rotate(3deg); z-index:2}
+.pc2 img{animation-delay:-6s}
+.pc3{bottom:2%; left:6%; width:55%; transform:rotate(2.4deg); z-index:3}
+.pc3 img{animation-delay:-11s}
+.stats{display:grid; grid-template-columns:repeat(4,1fr); background:var(--green-d); color:#efe6cd; margin:56px 0; border:2px solid #1d2b21; box-shadow:8px 8px 0 rgba(42,35,24,.18)}
+.stats div{padding:26px 18px; text-align:center; border-left:2px dashed rgba(239,230,205,.3)}
+.stats div:first-child{border-left:none}
+.stats b{display:block; font-family:'Forum',serif; font-weight:400; font-size:clamp(30px,3.6vw,46px); color:#e8b85c; font-variant-numeric:tabular-nums}
+.stats span{font-size:11.5px; letter-spacing:.2em; text-transform:uppercase; opacity:.85}
+.grid-b{display:grid; grid-template-columns:6fr 5fr; gap:clamp(26px,4vw,60px); align-items:start}
+.services{columns:2; gap:30px; list-style:none; font-size:16px}
+.services li{break-inside:avoid; margin-bottom:13px; padding-left:26px; position:relative}
+.services li::before{content:'✳'; position:absolute; left:0; color:var(--red); font-size:18px}
+.quote-card{background:var(--card); border:2px solid var(--ink); box-shadow:7px 7px 0 rgba(42,35,24,.16); padding:30px 28px 24px; transform:rotate(1.6deg); position:relative}
+.quote-card::before{content:'„'; position:absolute; top:-28px; left:14px; font-family:'Forum',serif; font-size:90px; color:var(--red); opacity:.85}
+.quote-card p{font-family:'Caveat',cursive; font-size:26px; line-height:1.35}
+.quote-card footer{margin-top:14px; font-size:14px; color:var(--ink2); letter-spacing:.08em}
+
+/* ============ РОЗДІЛ 4: КОНТАКТИ ============ */
+#contacts{background:var(--paper2)}
+#contacts .cols{display:grid; grid-template-columns:5fr 6fr; gap:clamp(26px,4vw,60px); align-items:start}
+.c-list{display:grid; gap:20px; margin-top:6px}
+.c-item{display:flex; gap:14px; align-items:flex-start}
+.c-item svg{flex:0 0 26px; margin-top:3px}
+.c-item b{display:block; font-size:12px; letter-spacing:.22em; text-transform:uppercase; color:var(--ink2); font-weight:600; margin-bottom:2px}
+.c-item p{font-size:17.5px}
+.c-item a{text-decoration:underline dashed var(--red); text-underline-offset:4px}
+.way-note{margin-top:26px; font-family:'Caveat',cursive; font-size:23px; line-height:1.3; color:var(--green); border:2px dashed var(--green); padding:14px 18px; transform:rotate(-.8deg); background:rgba(71,98,74,.06)}
+.map-card{background:var(--card); border:2px solid var(--ink); box-shadow:8px 8px 0 rgba(42,35,24,.16); padding:16px}
+.map-card svg{width:100%; height:auto; display:block}
+.map text{font-family:'Caveat',cursive; fill:#3f3626}
+.map-cap{font-size:20px; color:var(--ink2); margin-top:12px; transform:rotate(.5deg); text-align:center; font-family:'Caveat',cursive}
+footer{background:var(--green-d); color:#e9dfc5; padding:26px 0 34px; margin-top:70px}
+footer .wrap{display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; font-size:14px; letter-spacing:.04em}
+footer .hand{font-size:19px; color:#e8b85c}
+.marq{overflow:hidden; background:var(--red); color:#f7ead0; border-top:2px solid var(--red-d); border-bottom:2px solid var(--red-d)}
+.marq-track{display:flex; width:max-content; animation:marq 30s linear infinite}
+.marq-track span{white-space:nowrap; padding:.5rem 0; font-family:'Forum',serif; letter-spacing:.16em; text-transform:uppercase; font-size:13.5px}
+@keyframes marq{to{transform:translateX(-50%)}}
+
+/* ============ АДАПТИВ ============ */
+@media (max-width:980px){
+  #register .cols,#about .grid-a,#about .grid-b,#contacts .cols,.mast .wrap{grid-template-columns:1fr}
+  .scene{margin:10px auto 0}
+  .stats{grid-template-columns:1fr 1fr}
+  .stats div:nth-child(3){border-left:none}
+  .postcards{height:auto; display:grid; gap:22px; justify-items:center}
+  .pc{position:static; width:min(420px,100%)}
+  .services{columns:1}
+  .catalog-card{grid-template-columns:1fr; text-align:center; justify-items:center}
+  .cc-letter{border-right:none; border-bottom:2px dashed var(--ink2); padding:0 0 8px}
+  .stampwrap{margin:0 auto}
+}
+@media (prefers-reduced-motion: reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation-duration:.01ms!important; animation-iteration-count:1!important; transition-duration:.01ms!important}
+  .rev{opacity:1; transform:none}
+  .mask>span{transform:none}
+}
