@@ -41,7 +41,7 @@ async def index(request: Request):
             "schedule": f"{current_date.day} {months_dict[current_date.month]} · "
                         f"{
                         "Сьогодні ми працюємо😄 · з 10:00 до 19:00"
-                        if current_date.weekday() not in (1, 5)  # 0 - понеділок; 5 - субота
+                        if current_date.weekday() not in (0, 5)  # 0 - понеділок; 5 - субота
                         else "Сьогодні ми відпочиваємо🥺 · вихідні понеділок та субота"
                         }"
         }

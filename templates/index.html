@@ -35,7 +35,7 @@
   <div class="wrap">
     <div>
       <div class="title-shelf" id="titleShelf" aria-label="БІБЛІОТЕКА"></div>
-      <p class="mast-note hand">…один корінець зараз у читачів. «Кобзар» обіцяли повернути до неділі <b>♥</b></p>
+      <p class="mast-note hand">...Там, де Шацькі озера зустрічаються з океаном знань<b>♥</b></p>
       <h1 class="mast-title">
         <span class="mask"><span class="l1" style="--d:.5s">сільська бібліотека</span></span>
         <span class="mask"><span style="--d:.65s">Хата, де живуть книжки</span></span>
@@ -71,25 +71,31 @@
         <div class="fh"><h3>Формуляр<br>читача</h3><span class="mini-stamp">новий</span></div>
         <div class="form-body">
           <div class="field" id="fldName">
-            <label for="fName">Ім'я та прізвище *</label>
+            <label for="fName">Ім'я та прізвище</label>
             <input type="text" id="fName" autocomplete="name" placeholder="напр., Оксана Литвин">
           </div>
           <div class="field">
-            <label for="fVillage">Звідки ви (село, вулиця)</label>
-            <input type="text" id="fVillage" placeholder="Пульмо, вул. Незалежності">
+            <label for="fVillage">Звідки ви(село, селище, місто)</label>
+            <input type="text" id="fVillage" placeholder="напр., Пульмо">
           </div>
           <div class="field">
-            <label for="fBook">Улюблена книжка (чесність вітається)</label>
-            <input type="text" id="fBook" placeholder="хоча б та, що пригадається">
-          </div>
-          <div class="field">
-            <label for="fPhone">Телефон — лише щоб сказати «ваша книжка прийшла»</label>
+            <label for="fPhone">Телефон</label>
             <input type="tel" id="fPhone" placeholder="+380 …">
           </div>
-          <label class="chk"><input type="checkbox" id="fClub"><span class="box"></span>Запишіть мене ще й до гуртка
-            вишивання по середах</label>
+          <div class="field">
+            <label for="fPassword">Пароль</label>
+            <input type="password" id="fPassword" placeholder="Ваш формуляр - ваш пароль">
+          </div>
+          <label class="chk"><input type="checkbox" id="fClub"><span class="box"></span>
+            Згоден(-на) брати участь в розважальних заходах
+          </label>
           <button type="submit" class="btn">Стати читачем</button>
-          <p class="form-note hand">Пс-с: формуляр заповнюємо довго, бо розмовляємо. Це традиція.</p>
+          <button type="submit" class="btn">Увійти</button>
+          <p class="form-note hand">
+            У вас буде 2 формуляри: електронний та фізичний🤗
+            <br>
+            Електронний формуляр дозволяє ідентифікувати Вас на нашому сайті😇
+          </p>
         </div>
         <div class="form-result" aria-live="polite">
           <h3 id="rHello">Ласкаво просимо!</h3>
@@ -108,10 +114,16 @@
           <div class="scene-core" id="sceneCore" aria-label="Об'ємний вигляд читальної зали бібліотеки">
             <div class="l-wood"></div>
             <div class="l-mat"></div>
-            <div class="l-photo" role="img" aria-label="Полиці читаїльної зали"></div>
+            <div class="l-photo" role="img" aria-label="Полиці читаїльної зали">
+              <img
+                  src="{{ url_for('static', path='images/biblioteka.avif') }}"
+                  alt="Читання вголос для дітей"
+                  loading="lazy"
+              >
+            </div>
             <div class="l-spines" id="sceneSpines" aria-hidden="true"></div>
             <div class="obook" aria-hidden="true"><i></i><i></i></div>
-            <div class="l-tag" aria-hidden="true">вигляд ззовні<br>ми на другому етажі праворуч😄</div>
+            <div class="l-tag" aria-hidden="true">вигляд всередині<br>так, ми розуміємося  в дизайні😄</div>
             <div class="dust" aria-hidden="true">
               <span style="top:18%; left:30%; --z:60px; --t:6s"></span>
               <span style="top:34%; left:64%; --z:100px; --t:8s"></span>
@@ -122,7 +134,7 @@
             </div>
           </div>
         </div>
-        <p class="scene-cap hand">Бібліотека обходить навколо курсора — зовсім як кіт біля грубки</p>
+        <p class="scene-cap hand">3д візуалізація картинки інтер'єру😯</p>
       </div>
     </div>
   </div>
@@ -188,12 +200,12 @@
     <div class="grid-a">
       <div class="rev">
         <p class="lead">
-          Сільська бібліотека с. Пульмо (на фото) була відкрита у 1948 році,
-          розташована в центрі села в будинку культури на другому поверсі.
+          Сільська бібліотека с. Пульмо була відкрита у 1948 році,
+          <strong>розташована в центрі села в будинку культури на другому поверсі.</strong>
           Вона залишається острівцем збереження національної культури, народних традицій і звичаїв, історії свого села.
           Також бібліотека є територією духовності знань, помічником в освіті, професійному становленні, організації дозвілля.
           Вона на сьогодні може похвалитися великим набором послуг для своїх користувачів,
-          які на даний час надає бібліотекар І категорії Кушнір Наталія Юріївна.
+          які на даний час надає бібліотекар І категорії <strong>Кушнір Наталія Юріївна.</strong>
         </p>
         <p class="lead">
           З 2012 року бібліотека - філія с.Пульмо розпочала свою роботу народознавчого клубу за інтересами «Чомучки»,
@@ -212,28 +224,33 @@
           Приходьте до бібліотеки, беріть участь у її житті - і тоді й ваше життя стане яскравішим, багатшим, цікавішим!
         </p>
         <ul class="timeline">
-          <li><span class="yr">1957</span>Перші полиці у клубі — 200 книжок «з району».</li>
-          <li><span class="yr">1978</span>Переїзд у теперішню хату на Садовій, колишню сільраду.</li>
-          <li><span class="yr">1994</span>З'явився кобзарський куточок — «Кобзарі» трьох поколінь читачів.</li>
-          <li><span class="yr">2011</span>Перший комп'ютер: тепер допомагаємо з «Дією» та друкуємо реферати.</li>
-          <li><span class="yr">2024</span>Оновили читальну залу: нові стелажі, тепле світло, стіл для настолок.</li>
+          <li><span class="yr">1948</span>Побудова та відкриття бібліотеки</li>
+          <li><span class="yr">1978</span>Щось треба написати 0_0</li>
+          <li><span class="yr">1994</span>І тут написати :)</li>
+          <li>
+            <span class="yr">2013</span>
+            <strong>
+              <a href="https://pylmolibr.blogspot.com/p/blog-page.html">Створено офіційний блог бібліотеки.</a>
+            </strong>
+          </li>
+          <li><span class="yr">2026</span>Створення зручного й інтерактивного сайту.(Ви зараз на ньому😊)</li>
         </ul>
       </div>
       <div class="postcards rev" aria-label="Світлини бібліотеки">
         <figure class="pc pc1">
-          <div class="ph"><img src="https://picsum.photos/seed/old-reading-room-books/640/460"
+          <div class="ph"><img src="{{ url_for('static', path='images/bibliotekar.avif') }}"
                                alt="Читальна зала бібліотеки" loading="lazy"></div>
-          <figcaption>читальна зала, після ремонту</figcaption>
+          <figcaption>Бібліотекар та водночас дизайнер, перукар, співачка...😲</figcaption>
         </figure>
         <figure class="pc pc2">
-          <div class="ph"><img src="https://picsum.photos/seed/children-storytime-books/640/460"
+          <div class="ph"><img src="{{ url_for('static', path='images/knigi.avif') }}"
                                alt="Читання вголос для дітей" loading="lazy"></div>
-          <figcaption>голосні читання по середах</figcaption>
+          <figcaption>Полички з книгами😊</figcaption>
         </figure>
         <figure class="pc pc3">
-          <div class="ph"><img src="https://picsum.photos/seed/ukrainian-village-garden/640/460"
+          <div class="ph"><img src="{{ url_for('static', path='images/dut_kutochok.avif') }}"
                                alt="Вечір у саду бібліотеки" loading="lazy"></div>
-          <figcaption>кіновечори в саду, літо</figcaption>
+          <figcaption>Дитячий куточок👦</figcaption>
         </figure>
       </div>
     </div>
@@ -314,88 +331,21 @@
       </div>
       <div class="rev">
         <div class="map-card">
-          <svg class="map" viewBox="0 0 560 420" role="img"
-               aria-label="Мальована карта села: зупинка, клуб, церква, криниця і бібліотека на Садовій, 2">
-            <rect x="2" y="2" width="556" height="416" fill="#efe3c8"/>
-            <rect x="10" y="10" width="540" height="400" fill="none" stroke="#6a5a41" stroke-width="2"
-                  stroke-dasharray="7 6"/>
-            <!-- річка -->
-            <path d="M0 330 C120 290 200 360 310 325 S480 275 560 315" stroke="#6f8fa5" stroke-width="16" fill="none"
-                  opacity=".55"/>
-            <path d="M0 330 C120 290 200 360 310 325 S480 275 560 315" stroke="#a9c3d1" stroke-width="4" fill="none"
-                  opacity=".8"/>
-            <text x="392" y="308" font-size="17" transform="rotate(-6 392 308)">р. Кам'янка</text>
-            <!-- дорога -->
-            <path d="M40 40 C140 120 160 220 260 242 S430 235 530 300" stroke="#b59a68" stroke-width="13" fill="none"/>
-            <path d="M40 40 C140 120 160 220 260 242 S430 235 530 300" stroke="#f2e8d3" stroke-width="2"
-                  stroke-dasharray="10 10" fill="none"/>
-            <text x="120" y="200" font-size="18" transform="rotate(38 120 200)">вул. Садова</text>
-            <path d="M260 242 C290 200 320 175 352 150" stroke="#b59a68" stroke-width="9" fill="none"/>
-            <!-- маршрут від зупинки -->
-            <path d="M78 88 C150 140 175 205 250 236 L300 246" stroke="#a83c2b" stroke-width="3" stroke-dasharray="7 7"
-                  fill="none"/>
-            <!-- зупинка -->
-            <rect x="52" y="66" width="34" height="7" fill="#4a2f16"/>
-            <rect x="56" y="73" width="4" height="14" fill="#4a2f16"/>
-            <rect x="78" y="73" width="4" height="14" fill="#4a2f16"/>
-            <text x="30" y="56" font-size="17">зупинка</text>
-            <!-- клуб -->
-            <rect x="346" y="120" width="46" height="30" fill="#e9dcc0" stroke="#2a2318" stroke-width="2"/>
-            <path d="M344 120 h50 l-6 -12 h-38 z" fill="#7a4b26"/>
-            <text x="342" y="166" font-size="17">клуб</text>
-            <!-- церква -->
-            <rect x="452" y="92" width="34" height="32" fill="#e9dcc0" stroke="#2a2318" stroke-width="2"/>
-            <path d="M450 92 h38 l-19 -20 z" fill="#c08a2d"/>
-            <path d="M469 60 v12 M463 65 h12" stroke="#2a2318" stroke-width="2.5"/>
-            <text x="440" y="140" font-size="17">церква</text>
-            <!-- криниця -->
-            <circle cx="222" cy="192" r="11" fill="none" stroke="#3e5a6e" stroke-width="4"/>
-            <path d="M208 180 h28 l-14 -14 z" fill="#7a4b26"/>
-            <text x="196" y="222" font-size="17">криниця</text>
-            <!-- соняшники -->
-            <g>
-              <circle cx="286" cy="214" r="5" fill="#e0a92e"/>
-              <circle cx="286" cy="214" r="2" fill="#4a2f16"/>
-              <circle cx="300" cy="204" r="5" fill="#e0a92e"/>
-              <circle cx="300" cy="204" r="2" fill="#4a2f16"/>
-              <circle cx="316" cy="216" r="5" fill="#e0a92e"/>
-              <circle cx="316" cy="216" r="2" fill="#4a2f16"/>
-            </g>
-            <!-- бібліотека -->
-            <g transform="translate(320 242)">
-              <rect x="0" y="14" width="66" height="42" fill="#f8f0dd" stroke="#2a2318" stroke-width="2.5"/>
-              <path d="M-5 14 h76 l-38 -26 z" fill="#a83c2b" stroke="#2a2318" stroke-width="2"/>
-              <path d="M33 -22 l3.5 7 7.8 1-5.6 5.4 1.3 7.6-7-3.6-7 3.6 1.3-7.6-5.6-5.4 7.8-1z" fill="#c08a2d"
-                    stroke="#6e2416" stroke-width="1.2"/>
-              <rect x="26" y="32" width="14" height="24" fill="#7a4b26"/>
-              <rect x="7" y="24" width="12" height="12" fill="#a9c3d1" stroke="#2a2318" stroke-width="1.5"/>
-              <rect x="47" y="24" width="12" height="12" fill="#a9c3d1" stroke="#2a2318" stroke-width="1.5"/>
-              <text x="-14" y="76" font-size="19" fill="#a83c2b" style="font-weight:700">БІБЛІОТЕКА · Садова, 2</text>
-            </g>
-            <!-- дерева -->
-            <circle cx="96" cy="300" r="14" fill="#47624a" opacity=".8"/>
-            <circle cx="122" cy="318" r="10" fill="#47624a" opacity=".7"/>
-            <circle cx="470" cy="230" r="13" fill="#47624a" opacity=".8"/>
-            <circle cx="498" cy="214" r="9" fill="#47624a" opacity=".7"/>
-            <circle cx="380" cy="360" r="12" fill="#47624a" opacity=".75"/>
-            <!-- компас -->
-            <g transform="translate(512 52)">
-              <circle r="17" fill="none" stroke="#6a5a41" stroke-width="2"/>
-              <path d="M0 -13 L4 4 L0 0 L-4 4 Z" fill="#a83c2b"/>
-              <text x="-4" y="-20" font-size="14">Пн</text>
-            </g>
-          </svg>
+          <a href="https://maps.app.goo.gl/3ZGuft2F54REdvnw5">
+            <img src="{{ url_for('static', path='images/map.avif') }}"
+               alt="Карта розташування бібліотеки в селі Пульмо"
+               loading="lazy"
+               style="width:100%; height:auto; border-radius:6px;">
+          </a>
         </div>
-        <p class="map-cap">карту намалювала від руки наша бібліотекарка, пані Наталія</p>
+        <p class="map-cap">Натисніть на картинку щоб побачити нас на карті, пані Наталія😉</p>
       </div>
     </div>
   </div>
 
   <footer>
     <div class="wrap">
-      <span>Бібліотека філія села Пульмо😇<span id="year"></span></span>
       <span class="hand">зроблено з чорнилом, папером і любов'ю</span>
-      <span><a href="#register" style="color:#e8b85c">догори ↑</a></span>
     </div>
   </footer>
 </section>

@@ -34,19 +34,6 @@ for(let i=0;i<9;i++){
   ss.appendChild(b);
 }
 
-/* ---- нахил 3д сцени ---- */
-const scene = document.getElementById('scene'), core = document.getElementById('sceneCore');
-if(!RM){
-  scene.addEventListener('pointermove', e=>{
-    const r = scene.getBoundingClientRect();
-    const nx = (e.clientX - r.left)/r.width*2 - 1;
-    const ny = (e.clientY - r.top)/r.height*2 - 1;
-    core.classList.add('held');
-    core.style.transform = `rotateX(${(-ny*7).toFixed(2)}deg) rotateY(${(nx*9).toFixed(2)}deg)`;
-  });
-  scene.addEventListener('pointerleave', ()=>{ core.classList.remove('held'); core.style.transform=''; });
-}
-
 /* ---- каталог: дані 33 літер ---- */
 const BOOKS = [
  {l:'А', t:'«Аліса в Країні Чудес»', a:'Льюїс Керрол', ok:true},
