@@ -3,5 +3,6 @@ jinja2
 SQLAlchemy[asyncio]
 alembic
 asyncpg
+aiosqlite
 orjson
 granian
