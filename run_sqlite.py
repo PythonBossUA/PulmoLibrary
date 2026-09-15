@@ -14,10 +14,10 @@ class Base(DeclarativeBase):
 class Settlement(Base):
     __tablename__ = "settlements"
 
-    name1: Mapped[str] = mapped_column(String(63), nullable=False, primary_key=True)
-    name2: Mapped[str] = mapped_column(String(63), nullable=False, primary_key=True)
-    old_name1: Mapped[str] = mapped_column(String(63), nullable=True, primary_key=True)
-    old_name2: Mapped[str] = mapped_column(String(63), nullable=True, primary_key=True)
+    name_org: Mapped[str] = mapped_column("name:org", String(63), nullable=False, primary_key=True)
+    name_ua: Mapped[str] = mapped_column("name:ua", String(63), nullable=True, primary_key=True)
+    old_name_org: Mapped[str] = mapped_column("old_name:org", String(63), nullable=True, primary_key=True)
+    old_name_ua: Mapped[str] = mapped_column("old_name:ua", String(63), nullable=True, primary_key=True)
 
 
 async def main():
@@ -27,7 +27,7 @@ async def main():
         await conn.run_sync(Base.metadata.create_all)
 
     async with AsyncSession(engine) as session:
-        # prefix = "кіро".capitalize()
+        # prefix = "октя".capitalize()
         #
         # from sqlalchemy import select, case, or_
         #
@@ -35,19 +35,19 @@ async def main():
         #     (await session.scalars(
         #         select(
         #             case(
-        #                 (Settlement.name1.startswith(prefix), Settlement.name1),
-        #                 (Settlement.name2.startswith(prefix), Settlement.name2),
-        #                 (Settlement.old_name1.startswith(prefix), Settlement.old_name1),
-        #                 (Settlement.old_name2.startswith(prefix), Settlement.old_name2),
+        #                 (Settlement.name_ua.startswith(prefix), Settlement.name_ua),
+        #                 (Settlement.old_name_ua.startswith(prefix), Settlement.old_name_ua),
+        #                 (Settlement.name_org.startswith(prefix), Settlement.name_org),
+        #                 (Settlement.old_name_org.startswith(prefix), Settlement.old_name_org),
         #                 else_=None,
         #             ).distinct(),
         #         )
         #         .where(
         #             or_(
-        #                 Settlement.name1.startswith(prefix),
-        #                 Settlement.name2.startswith(prefix),
-        #                 Settlement.old_name1.startswith(prefix),
-        #                 Settlement.old_name2.startswith(prefix),
+        #                 Settlement.name_org.startswith(prefix),
+        #                 Settlement.name_ua.startswith(prefix),
+        #                 Settlement.old_name_org.startswith(prefix),
+        #                 Settlement.old_name_ua.startswith(prefix),
         #             )
         #         )
         #     )).all()
@@ -60,13 +60,13 @@ async def main():
 
             await session.execute(
                 insert(Settlement)
-                .on_conflict_do_nothing(index_elements=["name1", "name2", "old_name1", "old_name2"]),
+                .on_conflict_do_nothing(index_elements=["name:org", "name:ua", "old_name:org", "old_name:ua"]),
                 [
                     {
-                        "name1": line[3],
-                        "name2": line[4],
-                        "old_name1": line[8],
-                        "old_name2": line[9],
+                        "name_org": line[3],
+                        "name_ua": line[4],
+                        "old_name_org": line[8],
+                        "old_name_ua": line[9],
                     }
                     for line in reader
                 ]
