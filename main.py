@@ -7,12 +7,14 @@ from fastapi.staticfiles import StaticFiles
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import get_session
+from database import get_psql_session, get_sqlite_session
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
-database = Annotated[AsyncSession, Depends(get_session)]
+
+psql_database = Annotated[AsyncSession, Depends(get_psql_session)]
+sqlite_database = Annotated[AsyncSession, Depends(get_sqlite_session)]
 
 months_dict = {
     1: "Січня",

@@ -1,10 +1,13 @@
 import asyncio
 import csv
-
+# !!! No import from FastAPI project !!!
 from sqlalchemy import String
 from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+
+DATABASE_URL = "sqlite+aiosqlite:///settlements.db"
 
 
 class Base(DeclarativeBase):
@@ -21,7 +24,7 @@ class Settlement(Base):
 
 
 async def main():
-    engine = create_async_engine("sqlite+aiosqlite:///settlements.db", echo=False)
+    engine = create_async_engine(DATABASE_URL, echo=False)
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
