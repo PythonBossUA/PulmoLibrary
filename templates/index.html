@@ -72,7 +72,11 @@
         <div class="form-body">
           <div class="field" id="fldName">
             <label for="fName">Ім'я та прізвище</label>
-            <input type="text" id="fName" autocomplete="name" placeholder="напр., Оксана Литвин">
+            <input type="text" id="fName" autocomplete="name" placeholder="напр., Наталія Кушнір">
+          </div>
+          <div class="field">
+            <label for="fRegion">З якої області?</label>
+            <input type="text" id="fRegion" placeholder="напр., Волинська область">
           </div>
           <div class="field">
             <label for="fVillage">Звідки ви(село, селище, місто)</label>
@@ -89,20 +93,40 @@
           <label class="chk"><input type="checkbox" id="fClub"><span class="box"></span>
             Згоден(-на) брати участь в розважальних заходах
           </label>
+          <button type="button" class="switch-link" id="switchToLogin">Уже зареєстрований?</button>
           <button type="submit" class="btn">Стати читачем</button>
-          <button type="submit" class="btn">Увійти</button>
           <p class="form-note hand">
             У вас буде 2 формуляри: електронний та фізичний🤗
             <br>
             Електронний формуляр дозволяє ідентифікувати Вас на нашому сайті😇
           </p>
         </div>
+
+        <!-- форма входу для вже зареєстрованих -->
+        <div class="login-body">
+          <p class="login-lead hand">Раді бачимо знову! Заповніть формуляр, щоб увійти 👋</p>
+          <div class="field" id="fldLoginName">
+            <label for="loginName">Ім'я та прізвище</label>
+            <input type="text" id="loginName" autocomplete="name" placeholder="напр., Наталія Кушнір">
+          </div>
+          <div class="field">
+            <label for="loginRegion">З якої області?</label>
+            <input type="text" id="loginRegion" placeholder="напр., Волинська область">
+          </div>
+          <div class="field">
+            <label for="loginVillage">Звідки ви(село, селище, місто)</label>
+            <input type="text" id="loginVillage" placeholder="напр., Пульмо">
+          </div>
+          <button type="submit" class="btn">Увійти</button>
+          <button type="button" class="linky" id="switchToReg" style="margin-top:18px;">Повернутися до реєстрації</button>
+        </div>
+
         <div class="form-result" aria-live="polite">
           <h3 id="rHello">Ласкаво просимо!</h3>
-          <p>Ваш читацький квиток <b id="rNum">№ 0000</b> уже лежить у шухлядці.</p>
+          <p id="rTicket">Ваш читацький квиток <b id="rNum">№ 0000</b> уже лежить у шухлядці.</p>
           <p style="color:var(--ink2)" id="rDate"></p>
-          <div class="big-stamp">Зареєстровано</div>
-          <p class="hand" style="font-size:21px; color:var(--green)">Першу книжку обирайте просто зараз — тисніть на
+          <div class="big-stamp" id="rStamp">Зареєстровано</div>
+          <p class="hand" style="font-size:21px; color:var(--green)" id="rHint">Першу книжку обирайте просто зараз — тисніть на
             будь-який корінець нижче ↓</p>
           <button type="button" class="linky" id="btnAgain">Записати ще одного читача</button>
         </div>
@@ -267,16 +291,12 @@
         <h3 style="font-size:26px; margin-bottom:18px">Чим ми займаємось</h3>
         <ul class="services">
           <li>Видача книжок — великим і малим, без черг</li>
-          <li>Голосні читання для малюків — щосереди о 15:00</li>
-          <li>Кіновечори в саду — влітку, раз на місяць</li>
-          <li>Допомога зі шкільними завданнями — щодня від 14:00</li>
-          <li>Полиця буккросингу — візьми одну, принеси іншу</li>
+          <li>Щось роздрукувати</li>
+          <li>Заходи в пам'ятні дні</li>
+          <li>Ше там шось</li>
+          <li>Барабудай да буді да будай</li>
         </ul>
       </div>
-      <blockquote class="quote-card rev">
-        <p>Приходиш по одну книжку — а йдеш із трьома, чаєм і всіма сільськими новинами.</p>
-        <footer>— пані Галина, читачка з 1981 року</footer>
-      </blockquote>
     </div>
   </div>
 </section>
@@ -338,7 +358,7 @@
                style="width:100%; height:auto; border-radius:6px;">
           </a>
         </div>
-        <p class="map-cap">Натисніть на картинку щоб побачити нас на карті, пані Наталія😉</p>
+        <p class="map-cap">Натисніть на картинку щоб побачити нас на карті😉</p>
       </div>
     </div>
   </div>

@@ -2,9 +2,6 @@ const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* ---- дата ---- */
 const now = new Date();
-// document.getElementById('today').textContent =
-//   'Сьогодні, ' + now.toLocaleDateString('uk-UA',{day:'numeric',month:'long'}) + ' · читальна зала: вівт–суб 10:00–18:00';
-// document.getElementById('year').textContent = now.getFullYear();
 
 /* ---- слово з корінців ---- */
 const WORD = 'БІБЛІОТЕКА'.split('');
@@ -46,7 +43,6 @@ const BOOKS = [
  {l:'Є', t:'«Євшан-зілля»', a:'Володимир Бєляєв', ok:false, due:'до 3 червня'},
  {l:'Ж', t:'«Жовтий князь»', a:'Василь Барка', ok:true},
  {l:'З', t:'«Земля»', a:'Ольга Кобилянська', ok:true},
- {l:'И', special:'Літера «И» майже не починає слів — тому цей корінець стоїть для прикраси. Спитайте бібліотекарку: вона знає все.'},
  {l:'І', t:'«Інтернат»', a:'Сергій Жадан', ok:true},
  {l:'Ї', t:'«Їжачок у тумані»', a:'казка-картинка для вечорів', ok:true},
  {l:'Й', t:'«Фауст»', a:'Й.-В. Ґете, переклад М. Лукаша', ok:true},
@@ -66,7 +62,6 @@ const BOOKS = [
  {l:'Ч', t:'«Чорна рада»', a:'Пантелеймон Куліш', ok:true},
  {l:'Ш', t:'«Кобзар»', a:'Тарас Шевченко', ok:true, note:'той самий, що в читачів 😉'},
  {l:'Щ', t:'«Щедрівки та засівалки»', a:'збірка до зимових свят', ok:true},
- {l:'Ь', special:'З «ь» не починається жодне слово — він лише підтримує інших іззаду. За це ми його й любимо.'},
  {l:'Ю', t:'«Юність наших дідів»', a:'Роман Іваничук', ok:false, due:'до 29 травня'},
  {l:'Я', t:'«Я (Романтика)»', a:'Микола Хвильовий', ok:true}
 ];
@@ -137,20 +132,54 @@ document.getElementById('letterSearch').addEventListener('input', e=>{
   if(i>-1){ select(i); spineEls[i].scrollIntoView({block:'nearest', inline:'center', behavior: RM?'auto':'smooth'}); }
 });
 
-/* ---- формуляр ---- */
+/* ---- формуляр + вхід ---- */
 const form = document.getElementById('regForm');
+const switchToLogin = document.getElementById('switchToLogin');
+const switchToReg = document.getElementById('switchToReg');
+
+switchToLogin.addEventListener('click', ()=>{
+  form.classList.add('login');
+});
+switchToReg.addEventListener('click', ()=>{
+  form.classList.remove('login');
+  document.getElementById('fName').focus();
+});
+
 form.addEventListener('submit', e=>{
   e.preventDefault();
+  const isLogin = form.classList.contains('login');
+
+  if(isLogin){
+    const loginName = document.getElementById('loginName');
+    const fld = document.getElementById('fldLoginName');
+    if(!loginName.value.trim()){
+      fld.classList.remove('err'); void fld.offsetWidth; fld.classList.add('err');
+      loginName.focus(); return;
+    }
+    document.getElementById('rHello').textContent = 'З поверненням, ' + loginName.value.trim() + '!';
+    document.getElementById('rTicket').style.display = 'none';
+    document.getElementById('rDate').textContent = 'Дата входу: ' + now.toLocaleDateString('uk-UA',{day:'numeric',month:'long',year:'numeric'});
+    document.getElementById('rStamp').textContent = 'Увійшли';
+    document.getElementById('rHint').textContent = 'Обирайте книжку — тисніть на будь-який корінець нижче ↓';
+    form.classList.add('done');
+    return;
+  }
+
   const name = document.getElementById('fName');
   const fld = document.getElementById('fldName');
   if(!name.value.trim()){ fld.classList.remove('err'); void fld.offsetWidth; fld.classList.add('err'); name.focus(); return; }
   document.getElementById('rHello').textContent = 'Ласкаво просимо, ' + name.value.trim() + '!';
+  document.getElementById('rTicket').style.display = '';
   document.getElementById('rNum').textContent = '№ ' + (1000 + Math.floor(Math.random()*9000));
   document.getElementById('rDate').textContent = 'Дата запису: ' + now.toLocaleDateString('uk-UA',{day:'numeric',month:'long',year:'numeric'});
+  document.getElementById('rStamp').textContent = 'Зареєстровано';
+  document.getElementById('rHint').textContent = 'Першу книжку обирайте просто зараз — тисніть на будь-який корінець нижче ↓';
   form.classList.add('done');
 });
 document.getElementById('btnAgain').addEventListener('click', ()=>{
-  form.classList.remove('done'); form.reset();
+  form.classList.remove('done');
+  form.classList.remove('login');
+  form.reset();
   document.getElementById('fName').focus();
 });
 
