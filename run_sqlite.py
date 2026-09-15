@@ -1,11 +1,11 @@
 import asyncio
 import csv
+
 # !!! No import from FastAPI project !!!
-from sqlalchemy import String
+from sqlalchemy import String, ForeignKey, Integer
 from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-
 
 DATABASE_URL = "sqlite+aiosqlite:///settlements.db"
 
@@ -14,13 +14,35 @@ class Base(DeclarativeBase):
     pass
 
 
+class Region(Base):
+    __tablename__ = "regions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(31), nullable=False, unique=True)
+
+
 class Settlement(Base):
     __tablename__ = "settlements"
 
-    name_org: Mapped[str] = mapped_column("name:org", String(63), nullable=False, primary_key=True)
-    name_ua: Mapped[str] = mapped_column("name:ua", String(63), nullable=True, primary_key=True)
-    old_name_org: Mapped[str] = mapped_column("old_name:org", String(63), nullable=True, primary_key=True)
-    old_name_ua: Mapped[str] = mapped_column("old_name:ua", String(63), nullable=True, primary_key=True)
+    name_org: Mapped[str] = mapped_column(
+        "name:org", String(31), nullable=False, primary_key=True, autoincrement=False
+    )
+    name_ua: Mapped[str] = mapped_column(
+        "name:ua", String(31), nullable=True, primary_key=True, autoincrement=False
+    )
+    old_name_org: Mapped[str] = mapped_column(
+        "old_name:org", String(31), nullable=True, primary_key=True, autoincrement=False
+    )
+    old_name_ua: Mapped[str] = mapped_column(
+        "old_name:ua", String(31), nullable=True, primary_key=True, autoincrement=False
+    )
+    region_id: Mapped[int] = mapped_column(
+        "region:id",
+        ForeignKey("regions.id"),
+        nullable=False,
+        primary_key=True,
+        autoincrement=False,
+    )
 
 
 async def main():
@@ -61,21 +83,48 @@ async def main():
 
             _ = next(reader)
 
-            await session.execute(
-                insert(Settlement)
-                .on_conflict_do_nothing(index_elements=["name:org", "name:ua", "old_name:org", "old_name:ua"]),
-                [
+            regions = set()
+            settlements = list()
+            for row in reader:
+                region = row[10].strip()
+
+                regions.add(region)
+                settlements.append(
                     {
-                        "name_org": line[3],
-                        "name_ua": line[4],
-                        "old_name_org": line[8],
-                        "old_name_ua": line[9],
+                        "name_org": row[3],
+                        "name_ua": row[4],
+                        "old_name_org": row[8],
+                        "old_name_ua": row[9],
+                        "region_id": region,
                     }
-                    for line in reader
-                ]
+                )
+
+            region_name_and_id = dict(
+                (
+                    await session.execute(
+                        insert(Region).returning(Region.name, Region.id),
+                        ({"name": name} for name in regions),
+                    )
+                ).all()
+            )
+
+            for settlement in settlements:
+                settlement["region_id"] = region_name_and_id[settlement["region_id"]]
+
+            await session.execute(
+                insert(Settlement).on_conflict_do_nothing(
+                    index_elements=[
+                        "name:org",
+                        "name:ua",
+                        "old_name:org",
+                        "old_name:ua",
+                        "region:id",
+                    ]
+                ),
+                settlements,
             )
             await session.commit()
     await engine.dispose()
 
-
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())
