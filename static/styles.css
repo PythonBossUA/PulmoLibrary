@@ -425,6 +425,15 @@ section {
     animation: shake .4s
 }
 
+.field-hint {
+    display: block;
+    font-size: 11.5px;
+    color: var(--ink2);
+    margin-top: 3px;
+    opacity: .75;
+    font-style: italic
+}
+
 @keyframes shake {
     20%, 60% {
         transform: translateX(-6px)
@@ -518,6 +527,35 @@ section {
 .btn:active {
     transform: translate(2px, 2px);
     box-shadow: 1px 1px 0 var(--ink)
+}
+
+.btn.busy,
+.btn:disabled {
+    opacity: .72;
+    cursor: wait;
+    pointer-events: none
+}
+
+.btn.busy::after {
+    content: '...';
+    margin-left: 8px
+}
+
+.form-error {
+    color: var(--red);
+    font-size: 14.5px;
+    margin: 10px 0 6px;
+    min-height: 1.3em;
+    opacity: 0;
+    transform: translateY(-4px);
+    transition: opacity .25s, transform .25s;
+    pointer-events: none
+}
+
+.form-error.show {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto
 }
 
 .form-note {

@@ -2,7 +2,7 @@ import asyncio
 import csv
 
 # !!! No import from FastAPI project !!!
-from sqlalchemy import String, ForeignKey, Integer
+from sqlalchemy import String, ForeignKey, Integer, UniqueConstraint
 from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -24,24 +24,27 @@ class Region(Base):
 class Settlement(Base):
     __tablename__ = "settlements"
 
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name_org: Mapped[str] = mapped_column(
-        "name:org", String(31), nullable=False, primary_key=True, autoincrement=False
+        "name:org", String(31), nullable=False
     )
     name_ua: Mapped[str] = mapped_column(
-        "name:ua", String(31), nullable=True, primary_key=True, autoincrement=False
+        "name:ua", String(31), nullable=True
     )
     old_name_org: Mapped[str] = mapped_column(
-        "old_name:org", String(31), nullable=True, primary_key=True, autoincrement=False
+        "old_name:org", String(31), nullable=True
     )
     old_name_ua: Mapped[str] = mapped_column(
-        "old_name:ua", String(31), nullable=True, primary_key=True, autoincrement=False
+        "old_name:ua", String(31), nullable=True
     )
     region_id: Mapped[int] = mapped_column(
         "region:id",
         ForeignKey("regions.id"),
-        nullable=False,
-        primary_key=True,
-        autoincrement=False,
+        nullable=False
+    )
+
+    __table_args__ = (
+        UniqueConstraint("name:org", "name:ua", "old_name:org", "old_name:ua", "region:id"),
     )
 
 

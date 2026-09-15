@@ -6,3 +6,4 @@ asyncpg
 aiosqlite
 orjson
 granian
+argon2-cffi==25.1.0

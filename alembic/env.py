@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from alembic import context
 
-from database import DATABASE_URL
+from database import PSQL_DATABASE_URL as DATABASE_URL
 from models import Base
 
 DATABASE_URL = DATABASE_URL.replace("-pooler", "")

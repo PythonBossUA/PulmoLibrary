@@ -1,7 +1,7 @@
 #!/bin/sh
 
 pip install -r requirements.txt
-alembic upgrade head
+#alembic upgrade head
 granian \
   --interface asgi \
   --host 0.0.0.0 \

@@ -136,25 +136,110 @@ document.getElementById('letterSearch').addEventListener('input', e=>{
 const form = document.getElementById('regForm');
 const switchToLogin = document.getElementById('switchToLogin');
 const switchToReg = document.getElementById('switchToReg');
+const btnSubmit = document.getElementById('btnSubmit');
+const formError = document.getElementById('formError');
+const phoneInput = document.getElementById('fPhone');
+const nameInput = document.getElementById('fName');
+
+/* --- захист префіксу +38 та обмеження 10 цифр --- */
+phoneInput.addEventListener('input', function(){
+  let v = this.value;
+  if(!v.startsWith('+38')){
+    const cleaned = v.replace(/^[+]?3?8?/, '');
+    v = '+38' + cleaned;
+  }
+  const prefix = '+38';
+  let digits = v.slice(prefix.length).replace(/\D/g, '');
+  if(digits.length > 10){
+    digits = digits.slice(0, 10);
+  }
+  this.value = prefix + digits;
+});
+
+/* --- обмеження вводу імені: тільки літери та пробіл, максимум 1 пробіл --- */
+/* --- обмеження вводу імені --- */
+nameInput.addEventListener('input', function(){
+  let v = this.value;
+
+  // тільки літери та пробіл
+  v = v.replace(/[^\p{L} ]/gu, '');
+
+  // прибираємо пробіл на початку
+  if(v.startsWith(' ')) v = v.slice(1);
+
+  // залишаємо тільки перший пробіл (заборона двох пробілів на все поле)
+  const firstSpace = v.indexOf(' ');
+  if(firstSpace !== -1){
+    v = v.slice(0, firstSpace + 1) + v.slice(firstSpace + 1).replace(/ /g, '');
+  }
+
+  // якщо перед пробілом менше 2 літер, прибираємо пробіл
+  if(v.includes(' ')){
+    const idx = v.indexOf(' ');
+    if(idx < 2){
+      v = v.slice(0, idx) + v.slice(idx + 1);
+    }
+  }
+
+  this.value = v;
+});
+
+/* --- валідатори --- */
+const NAME_RE = /^\p{L}{2,} \p{L}{2,}$/u;
+
+function validateName(v){
+  return NAME_RE.test(v.trim());
+}
+function validatePassword(v){
+  return v.length >= 8;
+}
+function validatePhone(v){
+  const digits = v.replace(/\D/g, '');
+  return digits.startsWith('38') && digits.length === 12;
+}
+function phoneToSend(v){
+  const digits = v.replace(/\D/g, '');
+  return digits.startsWith('38') ? digits.slice(2) : digits;
+}
+
+function setError(msg){
+  formError.textContent = msg || '';
+  if(msg){ formError.classList.add('show'); }
+  else { formError.classList.remove('show'); }
+}
+function setBusy(isBusy){
+  btnSubmit.disabled = isBusy;
+  btnSubmit.classList.toggle('busy', !!isBusy);
+}
+function flashError(fieldId){
+  const fld = document.getElementById(fieldId);
+  if(!fld) return;
+  fld.classList.remove('err');
+  void fld.offsetWidth;
+  fld.classList.add('err');
+}
 
 switchToLogin.addEventListener('click', ()=>{
   form.classList.add('login');
+  setError('');
 });
 switchToReg.addEventListener('click', ()=>{
   form.classList.remove('login');
+  setError('');
   document.getElementById('fName').focus();
 });
 
-form.addEventListener('submit', e=>{
+form.addEventListener('submit', async e=>{
   e.preventDefault();
+  setError('');
   const isLogin = form.classList.contains('login');
 
   if(isLogin){
     const loginName = document.getElementById('loginName');
-    const fld = document.getElementById('fldLoginName');
     if(!loginName.value.trim()){
-      fld.classList.remove('err'); void fld.offsetWidth; fld.classList.add('err');
-      loginName.focus(); return;
+      flashError('fldLoginName');
+      loginName.focus();
+      return;
     }
     document.getElementById('rHello').textContent = 'З поверненням, ' + loginName.value.trim() + '!';
     document.getElementById('rTicket').style.display = 'none';
@@ -165,21 +250,93 @@ form.addEventListener('submit', e=>{
     return;
   }
 
-  const name = document.getElementById('fName');
-  const fld = document.getElementById('fldName');
-  if(!name.value.trim()){ fld.classList.remove('err'); void fld.offsetWidth; fld.classList.add('err'); name.focus(); return; }
-  document.getElementById('rHello').textContent = 'Ласкаво просимо, ' + name.value.trim() + '!';
-  document.getElementById('rTicket').style.display = '';
-  document.getElementById('rNum').textContent = '№ ' + (1000 + Math.floor(Math.random()*9000));
-  document.getElementById('rDate').textContent = 'Дата запису: ' + now.toLocaleDateString('uk-UA',{day:'numeric',month:'long',year:'numeric'});
-  document.getElementById('rStamp').textContent = 'Зареєстровано';
-  document.getElementById('rHint').textContent = 'Першу книжку обирайте просто зараз — тисніть на будь-який корінець нижче ↓';
-  form.classList.add('done');
+  const name = document.getElementById('fName').value.trim();
+  const phone = phoneInput.value.trim();
+  const password = document.getElementById('fPassword').value;
+  const eventsOk = document.getElementById('fClub').checked;
+
+  /* --- валідація імені --- */
+  if(!name){
+    flashError('fldName');
+    setError('Введіть ім’я та прізвище');
+    document.getElementById('fName').focus();
+    return;
+  }
+  if(!validateName(name)){
+    flashError('fldName');
+    setError('Ім’я: мінімум 2 літери, один пробіл, мінімум 2 літери прізвища');
+    document.getElementById('fName').focus();
+    return;
+  }
+
+  /* --- валідація телефону --- */
+  if(!validatePhone(phone)){
+    flashError('fldPhone');
+    setError('Телефон: +38 і ще 10 цифр, напр. +380961234567');
+    phoneInput.focus();
+    return;
+  }
+
+  /* --- валідація паролю --- */
+  if(!validatePassword(password)){
+    flashError('fldPassword');
+    setError('Пароль має містити щонайменше 8 символів');
+    document.getElementById('fPassword').focus();
+    return;
+  }
+
+  const payload = {
+    type: 'registration',
+    full_name: name,
+    phone_number: phoneToSend(phone),
+    password: password,
+    events_ok: eventsOk,
+    region_id: null,
+    settlement_id: null
+  };
+
+    setBusy(true);
+  try{
+    const resp = await fetch('/events', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    let data = null;
+    try{
+      data = await resp.json();
+    }catch(_){}
+
+    if(data && data.type === 'success_create'){
+      document.getElementById('rHello').textContent = 'Ласкаво просимо, ' + name + '!';
+      document.getElementById('rTicket').style.display = '';
+      document.getElementById('rNum').textContent = '№ ' + (1000 + Math.floor(Math.random()*9000));
+      document.getElementById('rDate').textContent = 'Дата запису: ' + now.toLocaleDateString('uk-UA',{day:'numeric',month:'long',year:'numeric'});
+      document.getElementById('rStamp').textContent = 'Зареєстровано';
+      document.getElementById('rHint').textContent = 'Першу книжку обирайте просто зараз — тисніть на будь-який корінець нижче ↓';
+      form.classList.add('done');
+    }
+    else if(data && data.type === 'bad_request'){
+      const msg = data.detail || data.message || 'Некоректні дані запиту';
+      setError(msg);
+    }
+    else{
+      setError('Сталася невідома помилка сервера');
+    }
+  }catch(err){
+    setError('Не вдалося зв’язатися з сервером. Перевірте з’єднання.');
+  }finally{
+    setBusy(false);
+  }
 });
+
 document.getElementById('btnAgain').addEventListener('click', ()=>{
   form.classList.remove('done');
   form.classList.remove('login');
   form.reset();
+  phoneInput.value = '+38';
+  setError('');
   document.getElementById('fName').focus();
 });
 

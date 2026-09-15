@@ -72,7 +72,8 @@
         <div class="form-body">
           <div class="field" id="fldName">
             <label for="fName">Ім'я та прізвище</label>
-            <input type="text" id="fName" autocomplete="name" placeholder="напр., Наталія Кушнір">
+            <input type="text" id="fName" autocomplete="name" placeholder="напр., Оксана Литвин">
+            <small class="field-hint">мінімум 2 літери, пробіл, мінімум 2 літери</small>
           </div>
           <div class="field">
             <label for="fRegion">З якої області?</label>
@@ -82,19 +83,22 @@
             <label for="fVillage">Звідки ви(село, селище, місто)</label>
             <input type="text" id="fVillage" placeholder="напр., Пульмо">
           </div>
-          <div class="field">
+          <div class="field" id="fldPhone">
             <label for="fPhone">Телефон</label>
-            <input type="tel" id="fPhone" placeholder="+380 …">
+            <input type="tel" id="fPhone" placeholder="+380 …" autocomplete="tel" value="+38">
+            <small class="field-hint">формат: +380XXXXXXXXX</small>
           </div>
-          <div class="field">
+          <div class="field" id="fldPassword">
             <label for="fPassword">Пароль</label>
-            <input type="password" id="fPassword" placeholder="Ваш формуляр - ваш пароль">
+            <input type="password" id="fPassword" placeholder="Ваш формуляр - ваш пароль" autocomplete="new-password">
+            <small class="field-hint">мінімум 8 символів</small>
           </div>
           <label class="chk"><input type="checkbox" id="fClub"><span class="box"></span>
             Згоден(-на) брати участь в розважальних заходах
           </label>
           <button type="button" class="switch-link" id="switchToLogin">Уже зареєстрований?</button>
-          <button type="submit" class="btn">Стати читачем</button>
+          <button type="submit" class="btn" id="btnSubmit">Стати читачем</button>
+          <p class="form-error" id="formError" role="alert" aria-live="polite"></p>
           <p class="form-note hand">
             У вас буде 2 формуляри: електронний та фізичний🤗
             <br>
@@ -104,10 +108,10 @@
 
         <!-- форма входу для вже зареєстрованих -->
         <div class="login-body">
-          <p class="login-lead hand">Раді бачимо знову! Заповніть формуляр, щоб увійти 👋</p>
+          <p class="login-lead hand">Радо бачимо знову! Заповніть формуляр, щоб увійти 👋</p>
           <div class="field" id="fldLoginName">
             <label for="loginName">Ім'я та прізвище</label>
-            <input type="text" id="loginName" autocomplete="name" placeholder="напр., Наталія Кушнір">
+            <input type="text" id="loginName" autocomplete="name" placeholder="напр., Оксана Литвин">
           </div>
           <div class="field">
             <label for="loginRegion">З якої області?</label>
@@ -249,8 +253,6 @@
         </p>
         <ul class="timeline">
           <li><span class="yr">1948</span>Побудова та відкриття бібліотеки</li>
-          <li><span class="yr">1978</span>Щось треба написати 0_0</li>
-          <li><span class="yr">1994</span>І тут написати :)</li>
           <li>
             <span class="yr">2013</span>
             <strong>
@@ -293,8 +295,6 @@
           <li>Видача книжок — великим і малим, без черг</li>
           <li>Щось роздрукувати</li>
           <li>Заходи в пам'ятні дні</li>
-          <li>Ше там шось</li>
-          <li>Барабудай да буді да будай</li>
         </ul>
       </div>
     </div>
