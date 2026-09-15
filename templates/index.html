@@ -75,29 +75,40 @@
             <input type="text" id="fName" autocomplete="name" placeholder="напр., Оксана Литвин">
             <small class="field-hint">мінімум 2 літери, пробіл, мінімум 2 літери</small>
           </div>
-          <div class="field">
+          <div class="field locked" id="fldRegion">
             <label for="fRegion">З якої області?</label>
-            <input type="text" id="fRegion" placeholder="напр., Волинська область">
+            <select id="fRegion" disabled>
+              <option value="" disabled selected>Оберіть область</option>
+            </select>
+            <small class="field-hint" id="regionHint">спочатку заповніть ім'я</small>
           </div>
-          <div class="field">
+          <div class="field locked" id="fldVillage">
             <label for="fVillage">Звідки ви(село, селище, місто)</label>
-            <input type="text" id="fVillage" placeholder="напр., Пульмо">
+            <div class="autocomplete-wrap">
+              <input type="text" id="fVillage" placeholder="введіть перші літери…" autocomplete="off" disabled>
+              <div class="autocomplete-list" id="villageList" aria-live="polite"></div>
+            </div>
+            <small class="field-hint" id="villageHint">спочатку оберіть область</small>
           </div>
-          <div class="field" id="fldPhone">
+          <div class="field locked" id="fldPhone">
             <label for="fPhone">Телефон</label>
-            <input type="tel" id="fPhone" placeholder="+380 …" autocomplete="tel" value="+38">
+            <input type="tel" id="fPhone" placeholder="+380 …" autocomplete="tel" value="+38" disabled>
             <small class="field-hint">формат: +380XXXXXXXXX</small>
           </div>
-          <div class="field" id="fldPassword">
+          <div class="field locked" id="fldPassword">
             <label for="fPassword">Пароль</label>
-            <input type="password" id="fPassword" placeholder="Ваш формуляр - ваш пароль" autocomplete="new-password">
+            <input type="password" id="fPassword" placeholder="Ваш формуляр - ваш пароль" autocomplete="new-password" disabled>
             <small class="field-hint">мінімум 8 символів</small>
           </div>
-          <label class="chk"><input type="checkbox" id="fClub"><span class="box"></span>
-            Згоден(-на) брати участь в розважальних заходах
-          </label>
+          <div class="field locked" id="fldClub">
+            <label class="chk"><input type="checkbox" id="fClub" disabled><span class="box"></span>
+              Згоден(-на) брати участь в розважальних заходах
+            </label>
+          </div>
           <button type="button" class="switch-link" id="switchToLogin">Уже зареєстрований?</button>
-          <button type="submit" class="btn" id="btnSubmit">Стати читачем</button>
+          <div class="field locked" id="fldSubmit">
+            <button type="submit" class="btn" id="btnSubmit" disabled>Стати читачем</button>
+          </div>
           <p class="form-error" id="formError" role="alert" aria-live="polite"></p>
           <p class="form-note hand">
             У вас буде 2 формуляри: електронний та фізичний🤗

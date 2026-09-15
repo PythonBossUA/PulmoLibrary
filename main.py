@@ -6,11 +6,13 @@ from datetime import date
 from fastapi import FastAPI, Depends, Request
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import select
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, case, or_, insert
+
 from argon2 import PasswordHasher, Type
 from database import get_psql_session, get_sqlite_session
+from models import User
 from run_sqlite import Region, Settlement
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
@@ -74,6 +76,7 @@ def format_phone_number(phone_number: str) -> str:
 async def events(request: Request, psql: psql_database, sqlite: sqlite_database):
     try:
         json = orjson.loads(await request.body())
+
         match json["type"]:
             case "registration":
                 """
@@ -92,23 +95,24 @@ async def events(request: Request, psql: psql_database, sqlite: sqlite_database)
                 hashed_password = password_hasher.hash(json["password"])
 
                 await psql.execute(
-                    insert(Settlement)
+                    insert(User)
                     .values(
                         first_name=first_name,
                         last_name=last_name,
                         phone_number=phone_number,
                         hashed_password=hashed_password,
                         events_ok=json["events_ok"],
-                        sqlite_region_id=await sqlite.scalar(
+                        sqlite_region_id=(await sqlite.execute(
                             select(Region.id)
                             .where(Region.id == json["region_id"])
-                        ),
-                        sqlite_settlement_id=await sqlite.scalar(
+                        )).scalar_one(),
+                        sqlite_settlement_id=(await sqlite.execute(
                             select(Settlement.id)
                             .where(Settlement.id == json["settlement_id"])
-                        ),
+                        )).scalar_one(),
                     )
                 )
+                await psql.commit()
 
                 return {
                     "type": "success_create"
@@ -116,18 +120,50 @@ async def events(request: Request, psql: psql_database, sqlite: sqlite_database)
 
             case "login":
                 ...
+
             case "need_regions":
                 return {
                     "type": "regions_answer",
                     "regions": [
                         {
-                            region.name : region.id
+                            region.name: region.id
                         }
                         for region in (await sqlite.scalars(select(Region))).all()
                     ]
                 }
+
             case "need_settlements":
-                ...
+                prefix = json["settlement_startname"].capitalize()
+
+                return {
+                    "type": "settlements_answer",
+                    "settlements": [
+                        {
+                            settlement: id_
+                        }
+                        for settlement, id_ in (await sqlite.execute(
+                            select(
+                                case(
+                                    (Settlement.name_ua.startswith(prefix), Settlement.name_ua),
+                                    (Settlement.old_name_ua.startswith(prefix), Settlement.old_name_ua),
+                                    (Settlement.name_org.startswith(prefix), Settlement.name_org),
+                                    (Settlement.old_name_org.startswith(prefix), Settlement.old_name_org),
+                                    else_=None,
+                                ).distinct(),
+                                Settlement.id
+                            )
+                            .where(
+                                Settlement.region_id == json["region_id"],
+                                or_(
+                                    Settlement.name_org.startswith(prefix),
+                                    Settlement.name_ua.startswith(prefix),
+                                    Settlement.old_name_org.startswith(prefix),
+                                    Settlement.old_name_ua.startswith(prefix),
+                                )
+                            )
+                        )).all()
+                    ]
+                }
     except Exception as e:
         return {
             "type": "bad_request"

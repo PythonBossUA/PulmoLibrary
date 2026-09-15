@@ -55,32 +55,6 @@ async def main():
         await conn.run_sync(Base.metadata.create_all)
 
     async with AsyncSession(engine) as session:
-        # prefix = "октя".capitalize()
-        #
-        # from sqlalchemy import select, case, or_
-        #
-        # print(
-        #     (await session.scalars(
-        #         select(
-        #             case(
-        #                 (Settlement.name_ua.startswith(prefix), Settlement.name_ua),
-        #                 (Settlement.old_name_ua.startswith(prefix), Settlement.old_name_ua),
-        #                 (Settlement.name_org.startswith(prefix), Settlement.name_org),
-        #                 (Settlement.old_name_org.startswith(prefix), Settlement.old_name_org),
-        #                 else_=None,
-        #             ).distinct(),
-        #         )
-        #         .where(
-        #             or_(
-        #                 Settlement.name_org.startswith(prefix),
-        #                 Settlement.name_ua.startswith(prefix),
-        #                 Settlement.old_name_org.startswith(prefix),
-        #                 Settlement.old_name_ua.startswith(prefix),
-        #             )
-        #         )
-        #     )).all()
-        # )
-
         with open("ua-name-places.csv", mode="r", newline="", encoding="utf-8") as file:
             reader = csv.reader(file, delimiter=",")
 
