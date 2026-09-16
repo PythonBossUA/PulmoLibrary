@@ -1,6 +1,4 @@
 const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-/* ---- дата ---- */
 const now = new Date();
 
 /* ---- слово з корінців ---- */
@@ -31,7 +29,7 @@ for(let i=0;i<9;i++){
   ss.appendChild(b);
 }
 
-/* ---- каталог: дані 33 літер ---- */
+/* ---- каталог ---- */
 const BOOKS = [
  {l:'А', t:'«Аліса в Країні Чудес»', a:'Льюїс Керрол', ok:true},
  {l:'Б', t:'«Байки»', a:'Леонід Глібов', ok:true},
@@ -93,7 +91,6 @@ BOOKS.forEach((d,i)=>{
   (i < 19 ? rowA : rowB).appendChild(b);
   spineEls.push(b);
 });
-/* реквізит на полиці */
 const props = document.createElement('div');
 props.className='shelf-props'; props.setAttribute('aria-hidden','true');
 props.innerHTML='🪴'; rowB.appendChild(props);
@@ -124,13 +121,148 @@ function select(i){
     : `зала ${(i%2)+1} · полиця ${(i%5)+1} · ${d.ok ? 'можна брати сьогодні' : 'запишемо вас у чергу'}`;
   card.classList.remove('pop'); void card.offsetWidth; card.classList.add('pop');
 }
-/* пошук літерою */
 document.getElementById('letterSearch').addEventListener('input', e=>{
   const v = e.target.value.trim().toUpperCase();
   if(!v) return;
   const i = BOOKS.findIndex(d=>d.l===v);
   if(i>-1){ select(i); spineEls[i].scrollIntoView({block:'nearest', inline:'center', behavior: RM?'auto':'smooth'}); }
 });
+
+/* ================= JWT ================= */
+const TOKEN_KEY = 'library_jwt';
+let expiryTimer = null;
+
+function decodeJwt(token){
+  try{
+    const parts = token.split('.');
+    if(parts.length !== 3) return null;
+    const b64 = parts[1].replace(/-/g,'+').replace(/_/g,'/');
+    const pad = b64.length % 4 === 0 ? '' : '='.repeat(4 - (b64.length % 4));
+    return JSON.parse(atob(b64 + pad));
+  }catch(e){ return null; }
+}
+
+function isTokenValid(){
+  const token = getToken();
+  if(!token) return false;
+  const payload = decodeJwt(token);
+  if(!payload || !payload.exp) return false;
+  return payload.exp > Math.floor(Date.now() / 1000);
+}
+
+function saveToken(jwt){
+  localStorage.setItem(TOKEN_KEY, jwt);
+  scheduleTokenExpiry();
+  updateUserWidget();
+  checkAuthState();
+}
+function getToken(){
+  return localStorage.getItem(TOKEN_KEY);
+}
+function removeToken(){
+  localStorage.removeItem(TOKEN_KEY);
+  if(expiryTimer){ clearTimeout(expiryTimer); expiryTimer = null; }
+  updateUserWidget();
+  checkAuthState();
+}
+function scheduleTokenExpiry(){
+  if(expiryTimer){ clearTimeout(expiryTimer); expiryTimer = null; }
+  const token = getToken();
+  if(!token) return;
+  const payload = decodeJwt(token);
+  if(!payload || !payload.exp) return;
+  const nowSec = Math.floor(Date.now() / 1000);
+  const remaining = payload.exp - nowSec;
+  if(remaining <= 0){ removeToken(); return; }
+  expiryTimer = setTimeout(removeToken, remaining * 1000);
+}
+
+function apiFetch(payload){
+  const headers = { 'Content-Type': 'application/json' };
+  const token = getToken();
+  if(token) headers['Authorization'] = 'Bearer ' + token;
+  return fetch('/events', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload)
+  });
+}
+
+/* ================= ВІДЖЕТ КОРИСТУВАЧА ================= */
+const userWidget = document.getElementById('userWidget');
+const userBtn = document.getElementById('userBtn');
+const userNameEl = document.getElementById('userName');
+
+function updateUserWidget(){
+  const token = getToken();
+  if(!token){
+    userWidget.hidden = true;
+    return;
+  }
+  const payload = decodeJwt(token);
+  if(!payload){
+    removeToken();
+    return;
+  }
+  const displayName = [payload.first_name, payload.last_name].filter(Boolean).join(' ');
+  userNameEl.textContent = displayName.trim();
+  userWidget.hidden = false;
+}
+
+userBtn.addEventListener('click', ()=>{
+  openProfileModal();
+});
+
+/* ================= ПРОФІЛЬ ================= */
+const profileModal = document.getElementById('profileModal');
+const profileBackdrop = document.getElementById('profileBackdrop');
+const profileClose = document.getElementById('profileClose');
+const btnLogout = document.getElementById('btnLogout');
+
+function openProfileModal(){
+  const token = getToken();
+  if(!token) return;
+  const p = decodeJwt(token);
+  if(!p) return;
+
+  document.getElementById('profileTitle').textContent =
+    [p.first_name, p.last_name].filter(Boolean).join(' ');
+  document.getElementById('profilePhone').textContent = p.phone_number || '—';
+  document.getElementById('profileRegion').textContent = p.region || '—';
+  document.getElementById('profileSettlement').textContent = p.settlement || '—';
+  document.getElementById('profileEvents').textContent = p.events_ok ? 'Так ✓' : 'Ні';
+
+  profileModal.hidden = false;
+  document.body.style.overflow = 'hidden';
+}
+function closeProfileModal(){
+  profileModal.hidden = true;
+  document.body.style.overflow = '';
+}
+
+profileClose.addEventListener('click', closeProfileModal);
+profileBackdrop.addEventListener('click', closeProfileModal);
+document.addEventListener('keydown', e=>{
+  if(e.key === 'Escape' && !profileModal.hidden) closeProfileModal();
+});
+
+btnLogout.addEventListener('click', ()=>{
+  removeToken();
+  closeProfileModal();
+  form.classList.remove('done');
+  form.classList.remove('login');
+  resetRegistrationForm();
+  updateFieldLocks();
+});
+
+/* ================= БЛОКУВАННЯ ФОРМИ ПРИ ТОКЕНІ ================= */
+function checkAuthState(){
+  if(isTokenValid() && !form.classList.contains('done')){
+    form.classList.add('authorized');
+  } else {
+    form.classList.remove('authorized');
+  }
+}
 
 /* ================= ФОРМУЛЯР ================= */
 const form = document.getElementById('regForm');
@@ -139,15 +271,33 @@ const switchToReg = document.getElementById('switchToReg');
 const btnSubmit = document.getElementById('btnSubmit');
 const formError = document.getElementById('formError');
 const phoneInput = document.getElementById('fPhone');
-const nameInput = document.getElementById('fName');
 const regionSelect = document.getElementById('fRegion');
 const villageInput = document.getElementById('fVillage');
 const villageList = document.getElementById('villageList');
 const passwordInput = document.getElementById('fPassword');
 
+const firstNameInput = document.getElementById('fFirstName');
+const lastNameInput = document.getElementById('fLastName');
+const surnameInput = document.getElementById('fSurname');
+
+/* ---- поля логіну ---- */
+const loginFirstNameInput = document.getElementById('loginFirstName');
+const loginLastNameInput = document.getElementById('loginLastName');
+const loginSurnameInput = document.getElementById('loginSurname');
+const loginRegionSelect = document.getElementById('loginRegion');
+const loginVillageInput = document.getElementById('loginVillage');
+const loginVillageList = document.getElementById('loginVillageList');
+const loginPasswordInput = document.getElementById('loginPassword');
+const btnLogin = document.getElementById('btnLogin');
+
 /* ---- валідатори ---- */
-const NAME_RE = /^\p{L}{2,} \p{L}{2,}$/u;
-function validateName(v){ return NAME_RE.test(v.trim()); }
+const SINGLE_NAME_RE = /^\p{L}{2,}$/u;
+function validateSingleName(v){ return SINGLE_NAME_RE.test(v.trim()); }
+function validateOptionalName(v){
+  const t = v.trim();
+  if(!t) return true;
+  return SINGLE_NAME_RE.test(t);
+}
 function validatePassword(v){ return v.length >= 8; }
 function validatePhone(v){
   const digits = v.replace(/\D/g, '');
@@ -157,6 +307,9 @@ function phoneToSend(v){
   const digits = v.replace(/\D/g, '');
   return digits.startsWith('38') ? digits.slice(2) : digits;
 }
+function sanitizeName(v){
+  return v.replace(/[^\p{L}]/gu, '');
+}
 
 /* ---- допоміжні ---- */
 function setError(msg){
@@ -164,9 +317,9 @@ function setError(msg){
   if(msg){ formError.classList.add('show'); }
   else { formError.classList.remove('show'); }
 }
-function setBusy(isBusy){
-  btnSubmit.disabled = isBusy;
-  btnSubmit.classList.toggle('busy', !!isBusy);
+function setBusy(btn, isBusy){
+  btn.disabled = isBusy;
+  btn.classList.toggle('busy', !!isBusy);
 }
 function flashError(fieldId){
   const fld = document.getElementById(fieldId);
@@ -175,10 +328,6 @@ function flashError(fieldId){
   void fld.offsetWidth;
   fld.classList.add('err');
 }
-
-/* ---- поетапне відкриття полів ---- */
-let regionsLoaded = false;
-let selectedSettlementId = null;
 
 function lockField(id){
   const fld = document.getElementById(id);
@@ -195,50 +344,97 @@ function unlockField(id){
   inputs.forEach(el => el.disabled = false);
 }
 
-function resetRegion(){
-  regionSelect.value = '';
+/* ================= ОБЛАСТІ (кеш) ================= */
+let cachedRegions = null;
+
+async function fetchRegions(){
+  if(cachedRegions) return cachedRegions;
+  const resp = await apiFetch({ type: 'need_regions' });
+  const data = await resp.json();
+  if(data.type === 'regions_answer' && Array.isArray(data.regions)){
+    cachedRegions = data.regions;
+  }
+  return cachedRegions;
 }
-function resetVillage(){
+
+async function fillRegionSelect(selectEl, hintEl){
+  if(hintEl) hintEl.textContent = 'завантаження областей…';
+  try{
+    const regions = await fetchRegions();
+    if(!regions){
+      if(hintEl) hintEl.textContent = 'помилка завантаження';
+      return;
+    }
+    selectEl.innerHTML = '<option value="" disabled selected>Оберіть область</option>';
+    regions.forEach(obj => {
+      const [name, id] = Object.entries(obj)[0];
+      const opt = document.createElement('option');
+      opt.value = id;
+      opt.textContent = name;
+      selectEl.appendChild(opt);
+    });
+    if(hintEl) hintEl.textContent = '27 областей';
+  }catch(e){
+    if(hintEl) hintEl.textContent = 'помилка зв’язку';
+  }
+}
+
+/* ================= ПОЕТАПНЕ ВІДКРИТТЯ (РЕЄСТРАЦІЯ) ================= */
+let regionsLoadedReg = false;
+let selectedSettlementId = null;
+
+function resetRegistrationForm(){
+  firstNameInput.value = '';
+  lastNameInput.value = '';
+  surnameInput.value = '';
+  regionSelect.innerHTML = '<option value="" disabled selected>Оберіть область</option>';
   villageInput.value = '';
   villageInput.dataset.settlementId = '';
   selectedSettlementId = null;
-  hideVillageList();
-}
-function resetPhone(){
+  hideVillageList(villageList);
   phoneInput.value = '+38';
-}
-function resetPassword(){
   passwordInput.value = '';
-}
-function resetClub(){
   document.getElementById('fClub').checked = false;
+  regionsLoadedReg = false;
 }
 
 function updateFieldLocks(){
-  const nameOk = validateName(nameInput.value);
+  const firstOk = validateSingleName(firstNameInput.value);
+  const lastOk = validateSingleName(lastNameInput.value);
+  const surnameOk = validateOptionalName(surnameInput.value);
   const regionOk = !!regionSelect.value;
   const settlementOk = !!selectedSettlementId;
   const phoneOk = validatePhone(phoneInput.value.trim());
   const passwordOk = validatePassword(passwordInput.value);
 
-  if(nameOk){
+  if(firstOk){
+    unlockField('fldLastName');
+  } else {
+    lockField('fldLastName');
+    lockField('fldSurname');
+    lockField('fldRegion');
+    lockField('fldVillage');
+    lockField('fldPhone');
+    lockField('fldPassword');
+    lockField('fldClub');
+    lockField('fldSubmit');
+    return;
+  }
+
+  if(lastOk){
+    unlockField('fldSurname');
     unlockField('fldRegion');
-    if(!regionsLoaded){
-      loadRegions();
-      regionsLoaded = true;
+    if(!regionsLoadedReg){
+      fillRegionSelect(regionSelect, document.getElementById('regionHint'));
+      regionsLoadedReg = true;
     }
   } else {
+    lockField('fldSurname');
     lockField('fldRegion');
-    resetRegion();
-    regionsLoaded = false;
     lockField('fldVillage');
-    resetVillage();
     lockField('fldPhone');
-    resetPhone();
     lockField('fldPassword');
-    resetPassword();
     lockField('fldClub');
-    resetClub();
     lockField('fldSubmit');
     return;
   }
@@ -248,13 +444,9 @@ function updateFieldLocks(){
     document.getElementById('villageHint').textContent = 'введіть перші 2 літери назви';
   } else {
     lockField('fldVillage');
-    resetVillage();
     lockField('fldPhone');
-    resetPhone();
     lockField('fldPassword');
-    resetPassword();
     lockField('fldClub');
-    resetClub();
     lockField('fldSubmit');
     return;
   }
@@ -263,11 +455,8 @@ function updateFieldLocks(){
     unlockField('fldPhone');
   } else {
     lockField('fldPhone');
-    resetPhone();
     lockField('fldPassword');
-    resetPassword();
     lockField('fldClub');
-    resetClub();
     lockField('fldSubmit');
     return;
   }
@@ -276,9 +465,7 @@ function updateFieldLocks(){
     unlockField('fldPassword');
   } else {
     lockField('fldPassword');
-    resetPassword();
     lockField('fldClub');
-    resetClub();
     lockField('fldSubmit');
     return;
   }
@@ -288,55 +475,21 @@ function updateFieldLocks(){
     unlockField('fldSubmit');
   } else {
     lockField('fldClub');
-    resetClub();
     lockField('fldSubmit');
     return;
   }
 }
 
-/* ---- запит областей ---- */
-async function loadRegions(){
-  const hint = document.getElementById('regionHint');
-  hint.textContent = 'завантаження областей…';
-  try{
-    const resp = await fetch('/events', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'need_regions' })
-    });
-    const data = await resp.json();
-    if(data.type === 'regions_answer' && Array.isArray(data.regions)){
-      regionSelect.innerHTML = '<option value="" disabled selected>Оберіть область</option>';
-      data.regions.forEach(obj => {
-        const [name, id] = Object.entries(obj)[0];
-        const opt = document.createElement('option');
-        opt.value = id;
-        opt.textContent = name;
-        regionSelect.appendChild(opt);
-      });
-      hint.textContent = '27 областей';
-    } else {
-      hint.textContent = 'помилка завантаження областей';
-    }
-  }catch(e){
-    hint.textContent = 'помилка зв’язку з сервером';
-  }
-}
-
-/* ---- запит населених пунктів (з debounce 1с) ---- */
+/* ================= НАСЕЛЕНІ ПУНКТИ ================= */
 let villageTimer = null;
 let villageAbort = null;
 
-async function loadSettlements(startName){
-  const regionId = regionSelect.value;
-  if(!regionId) return;
-
+async function loadSettlements(regionId, startName, listEl, hintEl){
   if(villageAbort) villageAbort.abort();
   villageAbort = new AbortController();
 
-  const hint = document.getElementById('villageHint');
-  hint.textContent = 'пошук населених пунктів…';
-  hideVillageList();
+  if(hintEl) hintEl.textContent = 'пошук населених пунктів…';
+  hideVillageList(listEl);
 
   try{
     const resp = await fetch('/events', {
@@ -352,39 +505,23 @@ async function loadSettlements(startName){
     const data = await resp.json();
     if(data.type === 'settlements_answer' && Array.isArray(data.settlements)){
       if(data.settlements.length > 0){
-        showVillageList(data.settlements);
-        hint.textContent = 'оберіть зі списку';
+        showVillageList(data.settlements, listEl);
+        if(hintEl) hintEl.textContent = 'оберіть зі списку';
       } else {
-        hint.textContent = 'нічого не знайдено';
+        if(hintEl) hintEl.textContent = 'нічого не знайдено';
       }
     } else {
-      hint.textContent = 'помилка пошуку';
+      if(hintEl) hintEl.textContent = 'помилка пошуку';
     }
   }catch(e){
-    if(e.name !== 'AbortError'){
-      document.getElementById('villageHint').textContent = 'помилка зв’язку';
+    if(e.name !== 'AbortError' && hintEl){
+      hintEl.textContent = 'помилка зв’язку';
     }
   }
 }
 
-villageInput.addEventListener('input', function(){
-  selectedSettlementId = null;
-  this.dataset.settlementId = '';
-  updateFieldLocks();
-
-  clearTimeout(villageTimer);
-  const v = this.value.trim();
-  if(v.length < 2){
-    hideVillageList();
-    return;
-  }
-  villageTimer = setTimeout(() => {
-    loadSettlements(v);
-  }, 1000);
-});
-
-function showVillageList(settlements){
-  villageList.innerHTML = '';
+function showVillageList(settlements, listEl){
+  listEl.innerHTML = '';
   settlements.forEach(obj => {
     const [name, id] = Object.entries(obj)[0];
     const item = document.createElement('div');
@@ -393,46 +530,62 @@ function showVillageList(settlements){
     item.dataset.id = id;
     item.addEventListener('mousedown', e => {
       e.preventDefault();
-      villageInput.value = name;
-      villageInput.dataset.settlementId = id;
-      selectedSettlementId = id;
-      hideVillageList();
-      updateFieldLocks();
+      const input = listEl.closest('.autocomplete-wrap').querySelector('input');
+      input.value = name;
+      input.dataset.settlementId = id;
+      if(listEl === villageList){
+        selectedSettlementId = id;
+        updateFieldLocks();
+      } else {
+        selectedLoginSettlementId = id;
+        updateLoginFieldLocks();
+      }
+      hideVillageList(listEl);
     });
-    villageList.appendChild(item);
+    listEl.appendChild(item);
   });
-  villageList.classList.add('show');
+  listEl.classList.add('show');
 }
 
-function hideVillageList(){
-  villageList.classList.remove('show');
-  villageList.innerHTML = '';
+function hideVillageList(listEl){
+  listEl.classList.remove('show');
+  listEl.innerHTML = '';
 }
 
-villageInput.addEventListener('blur', () => {
-  setTimeout(hideVillageList, 200);
+villageInput.addEventListener('input', function(){
+  selectedSettlementId = null;
+  this.dataset.settlementId = '';
+  updateFieldLocks();
+  clearTimeout(villageTimer);
+  const v = this.value.trim();
+  if(v.length < 2){
+    hideVillageList(villageList);
+    return;
+  }
+  villageTimer = setTimeout(() => {
+    loadSettlements(regionSelect.value, v, villageList, document.getElementById('villageHint'));
+  }, 1000);
 });
 
-/* ---- обмеження вводу імені ---- */
-nameInput.addEventListener('input', function(){
-  let v = this.value;
-  v = v.replace(/[^\p{L} ]/gu, '');
-  if(v.startsWith(' ')) v = v.slice(1);
-  const firstSpace = v.indexOf(' ');
-  if(firstSpace !== -1){
-    v = v.slice(0, firstSpace + 1) + v.slice(firstSpace + 1).replace(/ /g, '');
-  }
-  if(v.includes(' ')){
-    const idx = v.indexOf(' ');
-    if(idx < 2){
-      v = v.slice(0, idx) + v.slice(idx + 1);
-    }
-  }
-  this.value = v;
+villageInput.addEventListener('blur', () => {
+  setTimeout(()=>hideVillageList(villageList), 200);
+});
+
+/* ---- обмеження вводу імен ---- */
+firstNameInput.addEventListener('input', function(){
+  this.value = sanitizeName(this.value);
+  updateFieldLocks();
+});
+lastNameInput.addEventListener('input', function(){
+  this.value = sanitizeName(this.value);
+  updateFieldLocks();
+});
+surnameInput.addEventListener('input', function(){
+  this.value = sanitizeName(this.value);
   updateFieldLocks();
 });
 
-/* ---- захист префіксу +38, перша цифра 0, максимум 10 цифр ---- */
+/* ---- телефон ---- */
 phoneInput.addEventListener('input', function(){
   let v = this.value;
   if(!v.startsWith('+38')){
@@ -456,54 +609,249 @@ passwordInput.addEventListener('input', function(){
 });
 
 regionSelect.addEventListener('change', function(){
-  resetVillage();
+  selectedSettlementId = null;
+  villageInput.value = '';
+  villageInput.dataset.settlementId = '';
+  hideVillageList(villageList);
   updateFieldLocks();
 });
 
-/* ---- перемикання форм ---- */
+/* ================= ПОЕТАПНЕ ВІДКРИТТЯ (ЛОГІН) ================= */
+let regionsLoadedLogin = false;
+let selectedLoginSettlementId = null;
+let loginVillageTimer = null;
+
+function updateLoginFieldLocks(){
+  const firstOk = validateSingleName(loginFirstNameInput.value);
+  const lastOk = validateSingleName(loginLastNameInput.value);
+  const regionOk = !!loginRegionSelect.value;
+  const settlementOk = !!selectedLoginSettlementId;
+  const passwordOk = validatePassword(loginPasswordInput.value);
+
+  if(firstOk){
+    unlockField('fldLoginLastName');
+  } else {
+    lockField('fldLoginLastName');
+    lockField('fldLoginSurname');
+    lockField('fldLoginRegion');
+    lockField('fldLoginVillage');
+    lockField('fldLoginPassword');
+    btnLogin.disabled = true;
+    return;
+  }
+
+  if(lastOk){
+    unlockField('fldLoginSurname');
+    unlockField('fldLoginRegion');
+    if(!regionsLoadedLogin){
+      fillRegionSelect(loginRegionSelect, document.getElementById('loginRegionHint'));
+      regionsLoadedLogin = true;
+    }
+  } else {
+    lockField('fldLoginSurname');
+    lockField('fldLoginRegion');
+    lockField('fldLoginVillage');
+    lockField('fldLoginPassword');
+    btnLogin.disabled = true;
+    return;
+  }
+
+  if(regionOk){
+    unlockField('fldLoginVillage');
+    document.getElementById('loginVillageHint').textContent = 'введіть перші 2 літери назви';
+  } else {
+    lockField('fldLoginVillage');
+    lockField('fldLoginPassword');
+    btnLogin.disabled = true;
+    return;
+  }
+
+  if(settlementOk){
+    unlockField('fldLoginPassword');
+  } else {
+    lockField('fldLoginPassword');
+    btnLogin.disabled = true;
+    return;
+  }
+
+  if(passwordOk){
+    btnLogin.disabled = false;
+  } else {
+    btnLogin.disabled = true;
+  }
+}
+
+loginFirstNameInput.addEventListener('input', function(){
+  this.value = sanitizeName(this.value);
+  updateLoginFieldLocks();
+});
+loginLastNameInput.addEventListener('input', function(){
+  this.value = sanitizeName(this.value);
+  updateLoginFieldLocks();
+});
+loginSurnameInput.addEventListener('input', function(){
+  this.value = sanitizeName(this.value);
+  updateLoginFieldLocks();
+});
+
+loginRegionSelect.addEventListener('change', function(){
+  selectedLoginSettlementId = null;
+  loginVillageInput.value = '';
+  loginVillageInput.dataset.settlementId = '';
+  hideVillageList(loginVillageList);
+  updateLoginFieldLocks();
+});
+
+loginVillageInput.addEventListener('input', function(){
+  selectedLoginSettlementId = null;
+  this.dataset.settlementId = '';
+  updateLoginFieldLocks();
+  clearTimeout(loginVillageTimer);
+  const v = this.value.trim();
+  if(v.length < 2){
+    hideVillageList(loginVillageList);
+    return;
+  }
+  loginVillageTimer = setTimeout(() => {
+    loadSettlements(loginRegionSelect.value, v, loginVillageList, document.getElementById('loginVillageHint'));
+  }, 1000);
+});
+
+loginVillageInput.addEventListener('blur', () => {
+  setTimeout(()=>hideVillageList(loginVillageList), 200);
+});
+
+loginPasswordInput.addEventListener('input', function(){
+  updateLoginFieldLocks();
+});
+
+/* ================= ПЕРЕМИКАННЯ ФОРМ ================= */
 switchToLogin.addEventListener('click', ()=>{
   form.classList.add('login');
   setError('');
+  updateLoginFieldLocks();
 });
 switchToReg.addEventListener('click', ()=>{
   form.classList.remove('login');
   setError('');
-  document.getElementById('fName').focus();
+  updateFieldLocks();
+  firstNameInput.focus();
 });
 
-/* ---- сабміт ---- */
+/* ================= САБМІТ ================= */
 form.addEventListener('submit', async e=>{
   e.preventDefault();
   setError('');
   const isLogin = form.classList.contains('login');
 
   if(isLogin){
-    const loginName = document.getElementById('loginName');
-    if(!loginName.value.trim()){
-      flashError('fldLoginName');
-      loginName.focus();
+    const firstName = loginFirstNameInput.value.trim();
+    const lastName = loginLastNameInput.value.trim();
+    const surname = loginSurnameInput.value.trim();
+    const regionId = loginRegionSelect.value;
+    const settlementId = selectedLoginSettlementId;
+    const password = loginPasswordInput.value;
+
+    if(!validateSingleName(firstName)){
+      flashError('fldLoginFirstName');
+      setError('Ім’я: мінімум 2 літери');
+      loginFirstNameInput.focus();
       return;
     }
-    document.getElementById('rHello').textContent = 'З поверненням, ' + loginName.value.trim() + '!';
-    document.getElementById('rTicket').style.display = 'none';
-    document.getElementById('rDate').textContent = 'Дата входу: ' + now.toLocaleDateString('uk-UA',{day:'numeric',month:'long',year:'numeric'});
-    document.getElementById('rStamp').textContent = 'Увійшли';
-    document.getElementById('rHint').textContent = 'Обирайте книжку — тисніть на будь-який корінець нижче ↓';
-    form.classList.add('done');
+    if(!validateSingleName(lastName)){
+      flashError('fldLoginLastName');
+      setError('Прізвище: мінімум 2 літери');
+      loginLastNameInput.focus();
+      return;
+    }
+    if(!validateOptionalName(surname)){
+      flashError('fldLoginSurname');
+      setError('По батькові: мінімум 2 літери');
+      loginSurnameInput.focus();
+      return;
+    }
+    if(!regionId){
+      flashError('fldLoginRegion');
+      setError('Оберіть область');
+      return;
+    }
+    if(!settlementId){
+      flashError('fldLoginVillage');
+      setError('Оберіть населений пункт зі списку');
+      loginVillageInput.focus();
+      return;
+    }
+    if(!validatePassword(password)){
+      flashError('fldLoginPassword');
+      setError('Пароль має містити щонайменше 8 символів');
+      loginPasswordInput.focus();
+      return;
+    }
+
+    const payload = {
+      type: 'auth',
+      first_name: firstName,
+      last_name: lastName,
+      surname: surname,
+      region_id: parseInt(regionId),
+      settlement_id: parseInt(settlementId),
+      password: password
+    };
+
+    setBusy(btnLogin, true);
+    try{
+      const resp = await apiFetch(payload);
+      let data = null;
+      try{ data = await resp.json(); }catch(_){}
+
+      if(data && data.type === 'success_auth' && data.jwt){
+        saveToken(data.jwt);
+        document.getElementById('rHello').textContent = 'З поверненням, ' + firstName + ' ' + lastName + '!';
+        document.getElementById('rStamp').textContent = 'Увійшли';
+        document.getElementById('rHint').textContent = 'Ви успішно авторизувались на сайті 😊';
+        form.classList.add('done');
+      }
+      else if(data && data.type === 'bad_request'){
+        const msg = data.detail || data.message || 'Некоректні дані запиту';
+        setError(msg);
+      }
+      else{
+        setError('Сталася невідома помилка сервера');
+      }
+    }catch(err){
+      setError('Не вдалося зв’язатися з сервером. Перевірте з’єднання.');
+    }finally{
+      setBusy(btnLogin, false);
+    }
     return;
   }
 
-  const name = nameInput.value.trim();
+  /* --- реєстрація --- */
+  const firstName = firstNameInput.value.trim();
+  const lastName = lastNameInput.value.trim();
+  const surname = surnameInput.value.trim();
   const phone = phoneInput.value.trim();
   const password = passwordInput.value;
   const eventsOk = document.getElementById('fClub').checked;
   const regionId = regionSelect.value;
   const settlementId = selectedSettlementId;
 
-  if(!validateName(name)){
-    flashError('fldName');
-    setError('Ім’я: мінімум 2 літери, один пробіл, мінімум 2 літери прізвища');
-    nameInput.focus();
+  if(!validateSingleName(firstName)){
+    flashError('fldFirstName');
+    setError('Ім’я: мінімум 2 літери');
+    firstNameInput.focus();
+    return;
+  }
+  if(!validateSingleName(lastName)){
+    flashError('fldLastName');
+    setError('Прізвище: мінімум 2 літери');
+    lastNameInput.focus();
+    return;
+  }
+  if(!validateOptionalName(surname)){
+    flashError('fldSurname');
+    setError('По батькові: мінімум 2 літери');
+    surnameInput.focus();
     return;
   }
   if(!regionId){
@@ -532,7 +880,9 @@ form.addEventListener('submit', async e=>{
 
   const payload = {
     type: 'registration',
-    full_name: name,
+    first_name: firstName,
+    last_name: lastName,
+    surname: surname,
     phone_number: phoneToSend(phone),
     password: password,
     events_ok: eventsOk,
@@ -540,24 +890,17 @@ form.addEventListener('submit', async e=>{
     settlement_id: parseInt(settlementId)
   };
 
-  setBusy(true);
+  setBusy(btnSubmit, true);
   try{
-    const resp = await fetch('/events', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
+    const resp = await apiFetch(payload);
     let data = null;
     try{ data = await resp.json(); }catch(_){}
 
-    if(data && data.type === 'success_create'){
-      document.getElementById('rHello').textContent = 'Ласкаво просимо, ' + name + '!';
-      document.getElementById('rTicket').style.display = '';
-      document.getElementById('rNum').textContent = '№ ' + (1000 + Math.floor(Math.random()*9000));
-      document.getElementById('rDate').textContent = 'Дата запису: ' + now.toLocaleDateString('uk-UA',{day:'numeric',month:'long',year:'numeric'});
+    if(data && data.type === 'success_create' && data.jwt){
+      saveToken(data.jwt);
+      document.getElementById('rHello').textContent = 'Ласкаво просимо, ' + firstName + ' ' + lastName + '!';
       document.getElementById('rStamp').textContent = 'Зареєстровано';
-      document.getElementById('rHint').textContent = 'Першу книжку обирайте просто зараз — тисніть на будь-який корінець нижче ↓';
+      document.getElementById('rHint').textContent = 'Ви успішно авторизувались на сайті 😊';
       form.classList.add('done');
     }
     else if(data && data.type === 'bad_request'){
@@ -570,24 +913,15 @@ form.addEventListener('submit', async e=>{
   }catch(err){
     setError('Не вдалося зв’язатися з сервером. Перевірте з’єднання.');
   }finally{
-    setBusy(false);
+    setBusy(btnSubmit, false);
   }
 });
 
-/* ---- скидання форми ---- */
-document.getElementById('btnAgain').addEventListener('click', ()=>{
-  form.classList.remove('done');
-  form.classList.remove('login');
-  form.reset();
-  phoneInput.value = '+38';
-  selectedSettlementId = null;
-  regionsLoaded = false;
-  regionSelect.innerHTML = '<option value="" disabled selected>Оберіть область</option>';
-  hideVillageList();
-  setError('');
-  updateFieldLocks();
-  nameInput.focus();
-});
+/* ================= ІНІЦІАЛІЗАЦІЯ ================= */
+updateUserWidget();
+scheduleTokenExpiry();
+checkAuthState();
+updateFieldLocks();
 
 /* ---- лічильники ---- */
 document.getElementById('stYears').dataset.count = now.getFullYear() - 1948;

@@ -42,5 +42,12 @@ class User(Base):
     sqlite_settlement_id: Mapped[int] = mapped_column(Integer, nullable=False)
 
     __table_args__ = (
-        UniqueConstraint("first_name", "last_name", "phone_number", "sqlite_region_id", "sqlite_settlement_id"),
+        UniqueConstraint(
+            "first_name",
+            "last_name",
+            "phone_number",
+            "sqlite_region_id",
+            "sqlite_settlement_id",
+            name="unique_user"
+        ),
     )

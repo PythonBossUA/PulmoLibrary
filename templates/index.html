@@ -15,6 +15,43 @@
 </head>
 <body>
 
+<!-- віджет користувача -->
+<div class="user-widget" id="userWidget" hidden>
+  <button type="button" class="user-btn" id="userBtn" aria-label="Профіль користувача">
+    <span class="user-avatar">📖</span>
+    <span class="user-name" id="userName"></span>
+  </button>
+</div>
+
+<!-- модальне вікно профілю -->
+<div class="profile-modal" id="profileModal" hidden>
+  <div class="profile-backdrop" id="profileBackdrop"></div>
+  <div class="profile-card" role="dialog" aria-labelledby="profileTitle" aria-modal="true">
+    <button type="button" class="profile-close" id="profileClose" aria-label="Закрити профіль">✕</button>
+    <div class="profile-avatar">📖</div>
+    <h3 id="profileTitle" class="profile-name"></h3>
+    <div class="profile-info">
+      <div class="profile-row">
+        <span class="profile-label">Телефон</span>
+        <span class="profile-value" id="profilePhone"></span>
+      </div>
+      <div class="profile-row">
+        <span class="profile-label">Область</span>
+        <span class="profile-value" id="profileRegion"></span>
+      </div>
+      <div class="profile-row">
+        <span class="profile-label">Населений пункт</span>
+        <span class="profile-value" id="profileSettlement"></span>
+      </div>
+      <div class="profile-row">
+        <span class="profile-label">Участь у заходах</span>
+        <span class="profile-value" id="profileEvents"></span>
+      </div>
+    </div>
+    <button type="button" class="btn profile-logout" id="btnLogout">Вийти</button>
+  </div>
+</div>
+
 <!-- верхня смуга -->
 <div class="topstrip">
   <div class="wrap">
@@ -30,7 +67,7 @@
   </div>
 </div>
 
-<!-- мастоголовок: слово, викладене корінцями -->
+<!-- мастоголовок -->
 <header class="mast">
   <div class="wrap">
     <div>
@@ -66,21 +103,39 @@
       <h2>Запишіться в читачі</h2></div>
     <p class="sec-sub rev">За це передчасне «дякую». Ліворуч — формуляр, праворуч — наша бібліотека.</p>
     <div class="cols">
-      <!-- формуляр -->
       <form class="formula rev" id="regForm" novalidate>
         <div class="fh"><h3>Формуляр<br>читача</h3><span class="mini-stamp">новий</span></div>
+
+        <!-- повідомлення для авторизованих -->
+        <div class="auth-message" id="authMessage">
+          <p class="hand auth-emoji">📖</p>
+          <p class="hand auth-text">Ви вже авторизовані на сайті 😊</p>
+          <p class="auth-sub">Натисніть на свій профіль у правому верхньому куті, щоб переглянути дані або вийти.</p>
+        </div>
+
+        <!-- форма реєстрації -->
         <div class="form-body">
-          <div class="field" id="fldName">
-            <label for="fName">Ім'я та прізвище</label>
-            <input type="text" id="fName" autocomplete="name" placeholder="напр., Оксана Литвин">
-            <small class="field-hint">мінімум 2 літери, пробіл, мінімум 2 літери</small>
+          <div class="field" id="fldFirstName">
+            <label for="fFirstName">Ім'я</label>
+            <input type="text" id="fFirstName" autocomplete="given-name" placeholder="напр., Оксана">
+            <small class="field-hint">мінімум 2 літери</small>
+          </div>
+          <div class="field locked" id="fldLastName">
+            <label for="fLastName">Прізвище</label>
+            <input type="text" id="fLastName" autocomplete="family-name" placeholder="напр., Литвин">
+            <small class="field-hint">мінімум 2 літери</small>
+          </div>
+          <div class="field locked" id="fldSurname">
+            <label for="fSurname">По батькові</label>
+            <input type="text" id="fSurname" placeholder="напр., Іванівна">
+            <small class="field-hint">мінімум 2 літери · необов'язково</small>
           </div>
           <div class="field locked" id="fldRegion">
             <label for="fRegion">З якої області?</label>
             <select id="fRegion" disabled>
               <option value="" disabled selected>Оберіть область</option>
             </select>
-            <small class="field-hint" id="regionHint">спочатку заповніть ім'я</small>
+            <small class="field-hint" id="regionHint">спочатку заповніть ім'я та прізвище</small>
           </div>
           <div class="field locked" id="fldVillage">
             <label for="fVillage">Звідки ви(село, селище, місто)</label>
@@ -117,33 +172,52 @@
           </p>
         </div>
 
-        <!-- форма входу для вже зареєстрованих -->
+        <!-- форма входу -->
         <div class="login-body">
           <p class="login-lead hand">Радо бачимо знову! Заповніть формуляр, щоб увійти 👋</p>
-          <div class="field" id="fldLoginName">
-            <label for="loginName">Ім'я та прізвище</label>
-            <input type="text" id="loginName" autocomplete="name" placeholder="напр., Оксана Литвин">
+          <div class="field" id="fldLoginFirstName">
+            <label for="loginFirstName">Ім'я</label>
+            <input type="text" id="loginFirstName" autocomplete="given-name" placeholder="напр., Оксана">
+            <small class="field-hint">мінімум 2 літери</small>
           </div>
-          <div class="field">
+          <div class="field locked" id="fldLoginLastName">
+            <label for="loginLastName">Прізвище</label>
+            <input type="text" id="loginLastName" autocomplete="family-name" placeholder="напр., Литвин">
+            <small class="field-hint">мінімум 2 літери</small>
+          </div>
+          <div class="field locked" id="fldLoginSurname">
+            <label for="loginSurname">По батькові</label>
+            <input type="text" id="loginSurname" placeholder="напр., Іванівна">
+            <small class="field-hint">мінімум 2 літери · необов'язково</small>
+          </div>
+          <div class="field locked" id="fldLoginRegion">
             <label for="loginRegion">З якої області?</label>
-            <input type="text" id="loginRegion" placeholder="напр., Волинська область">
+            <select id="loginRegion" disabled>
+              <option value="" disabled selected>Оберіть область</option>
+            </select>
+            <small class="field-hint" id="loginRegionHint">спочатку заповніть ім'я та прізвище</small>
           </div>
-          <div class="field">
+          <div class="field locked" id="fldLoginVillage">
             <label for="loginVillage">Звідки ви(село, селище, місто)</label>
-            <input type="text" id="loginVillage" placeholder="напр., Пульмо">
+            <div class="autocomplete-wrap">
+              <input type="text" id="loginVillage" placeholder="введіть перші літери…" autocomplete="off" disabled>
+              <div class="autocomplete-list" id="loginVillageList" aria-live="polite"></div>
+            </div>
+            <small class="field-hint" id="loginVillageHint">спочатку оберіть область</small>
           </div>
-          <button type="submit" class="btn">Увійти</button>
+          <div class="field locked" id="fldLoginPassword">
+            <label for="loginPassword">Пароль</label>
+            <input type="password" id="loginPassword" placeholder="Ваш пароль" autocomplete="current-password" disabled>
+            <small class="field-hint">мінімум 8 символів</small>
+          </div>
+          <button type="submit" class="btn" id="btnLogin" disabled>Увійти</button>
           <button type="button" class="linky" id="switchToReg" style="margin-top:18px;">Повернутися до реєстрації</button>
         </div>
 
         <div class="form-result" aria-live="polite">
           <h3 id="rHello">Ласкаво просимо!</h3>
-          <p id="rTicket">Ваш читацький квиток <b id="rNum">№ 0000</b> уже лежить у шухлядці.</p>
-          <p style="color:var(--ink2)" id="rDate"></p>
           <div class="big-stamp" id="rStamp">Зареєстровано</div>
-          <p class="hand" style="font-size:21px; color:var(--green)" id="rHint">Першу книжку обирайте просто зараз — тисніть на
-            будь-який корінець нижче ↓</p>
-          <button type="button" class="linky" id="btnAgain">Записати ще одного читача</button>
+          <p class="hand" style="font-size:22px; color:var(--green)" id="rHint">Ви успішно авторизувались на сайті 😊</p>
         </div>
       </form>
 

@@ -32,7 +32,7 @@ def upgrade() -> None:
     sa.Column('sqlite_region_id', sa.Integer(), nullable=False),
     sa.Column('sqlite_settlement_id', sa.Integer(), nullable=False),
     sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('first_name', 'last_name', 'phone_number', 'sqlite_region_id', 'sqlite_settlement_id')
+    sa.UniqueConstraint('first_name', 'last_name', 'phone_number', 'sqlite_region_id', 'sqlite_settlement_id', name='unique_user'),
     )
     # ### end Alembic commands ###
 
