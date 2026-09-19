@@ -1,6 +1,6 @@
 import jwt, orjson
 
-from os import environ
+from os import environ, urandom
 from datetime import datetime, timedelta, timezone
 
 from typing import Annotated
@@ -11,12 +11,12 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, case, or_
+from sqlalchemy import select, case, or_, exists, update
 from sqlalchemy.dialects.postgresql import insert as psql_insert
 
 from argon2 import PasswordHasher, Type
 from database import get_psql_session, get_sqlite_session
-from models import User
+from models import User, VERIFIED_FLAG, UNVERIFIED_FLAG
 from run_sqlite import Region, Settlement
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
@@ -26,8 +26,12 @@ templates = Jinja2Templates(directory="templates")
 psql_database = Annotated[AsyncSession, Depends(get_psql_session)]
 sqlite_database = Annotated[AsyncSession, Depends(get_sqlite_session)]
 password_hasher = PasswordHasher(
-    time_cost=3, memory_cost=16384, parallelism=1,
-    hash_len=48, salt_len=16, type=Type.ID,
+    time_cost=3,
+    memory_cost=16384,
+    parallelism=1,
+    hash_len=48,
+    salt_len=16,
+    type=Type.ID,
 )
 jwt_secret_key = environ["JWT_SECRET_KEY"]
 jwt_algorithm = "HS256"
@@ -45,7 +49,7 @@ months_dict = {
     9: "Вересня",
     10: "Жовтня",
     11: "Листопада",
-    12: "Грудня"
+    12: "Грудня",
 }
 
 
@@ -57,44 +61,60 @@ async def index(request: Request):
         request,
         "index.html",
         context={
-            "schedule": f"{current_date.day} {months_dict[current_date.month]} · "
-                        f"{
-                        "Сьогодні ми працюємо😄 · з 10:00 до 19:00"
-                        if current_date.weekday() not in (0, 5)  # 0 - понеділок; 5 - субота
-                        else "Сьогодні ми відпочиваємо🥺 · вихідні понеділок та субота"
-                        }"
-        }
+            "schedule": f"{current_date.day} {months_dict[current_date.month]} · " f"{
+            "Сьогодні ми працюємо😄 · з 10:00 до 19:00"
+            if current_date.weekday() not in (0, 5)  # 0 - понеділок; 5 - субота
+            else "Сьогодні ми відпочиваємо🥺 · вихідні понеділок та субота"
+            }"
+        },
     )
 
 
-def split_full_name(full_name: str) -> tuple[str, str]:
-    first_name, last_name = full_name.strip().split()
-    return first_name.capitalize(), last_name.capitalize()
+def normalize_name(name: str) -> str | None:
+    return name.strip().capitalize() if len(name) >= 2 else None
 
 
-def format_phone_number(phone_number: str) -> str:
+def format_phone_number(phone_number: str) -> str | None:
     clear_number = phone_number.removeprefix("+38")
     return (
         clear_number
         if len(clear_number) == 10
-           and clear_number.isdigit()
-           and clear_number.startswith("0")
+        and clear_number.isdigit()
+        and clear_number.startswith("0")
         else None
     )
 
 
-def bad_request() -> dict:
-    return {"type": "bad_request"}
+def bad_request(message: str | None = None) -> dict:
+    return {
+        "type": "bad_request"
+        **({"message": message} if message else {})
+    }
+
+
+async def get_settlement_by_id(id_: int, sqlite_session: AsyncSession) -> str | None:
+    return await sqlite_session.scalar(
+        select(
+            case(
+                (Settlement.name_ua.isnot(None), Settlement.name_ua),
+                (Settlement.name_org.isnot(None), Settlement.name_org),
+                (
+                    Settlement.old_name_ua.isnot(None),
+                    Settlement.old_name_ua,
+                ),
+                (
+                    Settlement.old_name_org.isnot(None),
+                    Settlement.old_name_org,
+                ),
+                else_=None,
+            )
+        ).where(Settlement.id == id_)
+    )
 
 
 def jwt_builder(**kwargs) -> str:
     kwargs.update(exp=datetime.now(timezone.utc) + jwt_exp)
-
-    return jwt.encode(
-        payload=kwargs,
-        key=jwt_secret_key,
-        algorithm=jwt_algorithm
-    )
+    return jwt.encode(payload=kwargs, key=jwt_secret_key, algorithm=jwt_algorithm)
 
 
 @app.post("/events")
@@ -107,7 +127,9 @@ async def events(request: Request, psql: psql_database, sqlite: sqlite_database)
                 """
                 require {
                     "type": "registration",
-                    "full_name": <str>,
+                    "first_name": <str>,
+                    "last_name": <str>,
+                    "surname": <str>,
                     "phone_number": <str>,
                     "password": <str>,
                     "events_ok": <bool>,
@@ -115,7 +137,13 @@ async def events(request: Request, psql: psql_database, sqlite: sqlite_database)
                     "settlement_id": <int>,
                 }
                 """
-                first_name, last_name = split_full_name(json["full_name"])
+                first_name, last_name, surname = (
+                    normalize_name(json["first_name"]),
+                    normalize_name(json["last_name"]),
+                    normalize_name(json["surname"]),
+                )
+                if not all((first_name, last_name, surname)):
+                    return bad_request()
 
                 phone_number = format_phone_number(json["phone_number"])
                 if not phone_number:
@@ -123,99 +151,76 @@ async def events(request: Request, psql: psql_database, sqlite: sqlite_database)
 
                 hashed_password = password_hasher.hash(json["password"])
 
-                region_name, region_id = (await sqlite.execute(
-                    select(Region.name, Region.id)
-                    .where(Region.id == json["region_id"])
-                )).first()
-
-                settlement_name, settlement_id = (await sqlite.execute(
-                    select(
-                        case(
-                            (Settlement.name_ua.isnot(None), Settlement.name_ua),
-                            (Settlement.name_org.isnot(None), Settlement.name_org),
-                            (Settlement.old_name_ua.isnot(None), Settlement.old_name_ua),
-                            (Settlement.old_name_org.isnot(None), Settlement.old_name_org),
-                            else_=None,
-                        ),
-                        Settlement.id
-                    )
-                    .where(Settlement.id == json["settlement_id"])
-                )).first()
-
-                user_id = await psql.scalar(
+                telegram_code = urandom(3).hex()
+                psql_response = await psql.execute(
                     psql_insert(User)
                     .values(
                         first_name=first_name,
                         last_name=last_name,
+                        surname=surname,
+                        telegram_id=telegram_code,
                         phone_number=phone_number,
                         hashed_password=hashed_password,
                         events_ok=json["events_ok"],
-                        sqlite_region_id=region_id,
-                        sqlite_settlement_id=settlement_id,
+                        sqlite_region_id=(
+                            json["region_id"]
+                            if await sqlite.execute(
+                                select(exists().where(Region.id == json["region_id"]))
+                            )
+                            else None  # None raises IntegrityError
+                        ),
+                        sqlite_settlement_id=(
+                            json["settlement_id"]
+                            if await sqlite.scalar(
+                                select(
+                                    exists().where(
+                                        Settlement.id == json["settlement_id"]
+                                    )
+                                )
+                            )
+                            else None  # None raises IntegrityError
+                        ),
                     )
-                    .on_conflict_do_nothing(
-                        constraint="unique_user"
-                    )
-                    .returning(User.id)
+                    .on_conflict_do_nothing(constraint="unique_user")
                 )
-                if not user_id:
-                    return bad_request()
-                
+                if psql_response.rowcount == 0:
+                    return bad_request(message="Такий користувач існує в базі")
+
                 await psql.commit()
 
                 return {
                     "type": "success_create",
-                    "jwt": jwt_builder(
-                        id=user_id,
-                        first_name=first_name,
-                        last_name=last_name,
-                        phone_number=phone_number,
-                        region=region_name,
-                        settlement=settlement_name,
-                        events_ok=json["events_ok"]
-                    )
+                    "telegram_code": telegram_code,
                 }
 
             case "auth":
                 """
                 require {
                     "type": "auth",
-                    "full_name": <str>,
+                    "first_name": <str>,
+                    "last_name": <str>,
+                    "surname": <str>,
+                    "phone_number": <str>,
                     "region_id": <int>,
                     "settlement_id": <int>,
                     "password": <str>
                 }
                 """
-                first_name, last_name = split_full_name(json["full_name"])
                 user = await psql.scalar(
-                    select(User)
-                    .where(
-                        User.first_name == first_name,
-                        User.last_name == last_name,
+                    select(User).where(
+                        User.first_name == normalize_name(json["first_name"]),
+                        User.last_name == normalize_name(json["last_name"]),
+                        User.surname == normalize_name(json["surname"]),
+                        User.phone_number == format_phone_number(json["phone_number"]),
                         User.sqlite_region_id == json["region_id"],
                         User.sqlite_settlement_id == json["settlement_id"],
                     )
                 )
 
-                if user:
+                if user and (
+                    user.telegram_id.isdigit() or user.telegram_id == VERIFIED_FLAG
+                ):
                     password_hasher.verify(user.hashed_password, json["password"])
-
-                    region_name = await sqlite.scalar(
-                        select(Region.name)
-                        .where(Region.id == user.sqlite_region_id)
-                    )
-                    settlement_name = await sqlite.scalar(
-                        select(
-                            case(
-                                (Settlement.name_ua.isnot(None), Settlement.name_ua),
-                                (Settlement.name_org.isnot(None), Settlement.name_org),
-                                (Settlement.old_name_ua.isnot(None), Settlement.old_name_ua),
-                                (Settlement.old_name_org.isnot(None), Settlement.old_name_org),
-                                else_=None,
-                            )
-                        )
-                        .where(Settlement.id == json["settlement_id"])
-                    )
 
                     return {
                         "type": "success_auth",
@@ -223,13 +228,100 @@ async def events(request: Request, psql: psql_database, sqlite: sqlite_database)
                             id=user.id,
                             first_name=user.first_name,
                             last_name=user.last_name,
+                            surname=user.surname,
                             phone_number=user.phone_number,
-                            region=region_name,
-                            settlement=settlement_name,
-                            events_ok=user.events_ok
-                        )
+                            region=await sqlite.scalar(
+                                select(Region.name).where(
+                                    Region.id == user.sqlite_region_id
+                                )
+                            ),
+                            settlement=await get_settlement_by_id(
+                                id_=json["settlement_id"], sqlite_session=sqlite
+                            ),
+                            events_ok=user.events_ok,
+                        ),
                     }
-                return bad_request()
+                return bad_request(message="Неправильні дані")
+
+            case "do_not_verify_telegram":
+                """
+                require {
+                    "type": "do_not_verify_telegram",
+                    "first_name": <str>,
+                    "last_name": <str>,
+                    "surname": <str>,
+                    "region_id": <int>,
+                    "settlement_id": <int>
+                }
+                """
+                psql_response = await psql.execute(
+                    update(User.telegram_id)
+                    .values(telegram_id=UNVERIFIED_FLAG)
+                    .where(
+                        User.first_name == normalize_name(json["first_name"]),
+                        User.last_name == normalize_name(json["last_name"]),
+                        User.surname == normalize_name(json["surname"]),
+                        User.phone_number == format_phone_number(json["phone_number"]),
+                        User.sqlite_region_id == json["region_id"],
+                        User.sqlite_settlement_id == json["settlement_id"],
+                    )
+                )
+                if psql_response.rowcount == 0:
+                    return bad_request()
+                return {"type": "not_verify_ok"}
+
+            case "user_is_verified":
+                """
+                require {
+                    "type": "user_is_verified",
+                    "first_name": <str>,
+                    "last_name": <str>,
+                    "surname": <str>,
+                    "region_id": <int>,
+                    "settlement_id": <int>,
+                }
+                """
+                first_name, last_name, surname = (
+                    normalize_name(json["first_name"]),
+                    normalize_name(json["last_name"]),
+                    normalize_name(json["surname"]),
+                )
+
+                user = await psql.scalar(
+                    select(User).where(
+                        User.first_name == first_name,
+                        User.last_name == last_name,
+                        User.surname == surname,
+                        User.sqlite_region_id == json["region_id"],
+                        User.sqlite_settlement_id == json["settlement_id"],
+                        or_(
+                            User.telegram_id.op("~")("^[[:digit:]]+$"),
+                            User.telegram_id == VERIFIED_FLAG,
+                        ),
+                    )
+                )
+
+                if user:
+                    return {
+                        "type": "user_is_verified",
+                        "jwt": jwt_builder(
+                            id=user.id,
+                            first_name=user.first_name,
+                            last_name=user.last_name,
+                            surname=surname,
+                            phone_number=user.phone_number,
+                            region=await sqlite.scalar(
+                                select(Region.name).where(
+                                    Region.id == json["region_id"]
+                                )
+                            ),
+                            settlement=await get_settlement_by_id(
+                                id_=json["settlement_id"], sqlite_session=sqlite
+                            ),
+                            events_ok=user.events_ok,
+                        ),
+                    }
+                return {"type": "user_is_unverified"}
 
             case "need_regions":
                 """
@@ -241,11 +333,9 @@ async def events(request: Request, psql: psql_database, sqlite: sqlite_database)
                 return {
                     "type": "regions_answer",
                     "regions": [
-                        {
-                            region.name: region.id
-                        }
+                        {region.name: region.id}
                         for region in (await sqlite.scalars(select(Region))).all()
-                    ]
+                    ],
                 }
 
             case "need_settlements":
@@ -262,31 +352,42 @@ async def events(request: Request, psql: psql_database, sqlite: sqlite_database)
                 return {
                     "type": "settlements_answer",
                     "settlements": [
-                        {
-                            settlement: id_
-                        }
-                        for settlement, id_ in (await sqlite.execute(
-                            select(
-                                case(
-                                    (Settlement.name_ua.startswith(prefix), Settlement.name_ua),
-                                    (Settlement.name_org.startswith(prefix), Settlement.name_org),
-                                    (Settlement.old_name_ua.startswith(prefix), Settlement.old_name_ua),
-                                    (Settlement.old_name_org.startswith(prefix), Settlement.old_name_org),
-                                    else_=None,
-                                ).distinct(),
-                                Settlement.id
-                            )
-                            .where(
-                                Settlement.region_id == json["region_id"],
-                                or_(
-                                    Settlement.name_org.startswith(prefix),
-                                    Settlement.name_ua.startswith(prefix),
-                                    Settlement.old_name_org.startswith(prefix),
-                                    Settlement.old_name_ua.startswith(prefix),
+                        {settlement: id_}
+                        for settlement, id_ in (
+                            await sqlite.execute(
+                                select(
+                                    case(
+                                        (
+                                            Settlement.name_ua.startswith(prefix),
+                                            Settlement.name_ua,
+                                        ),
+                                        (
+                                            Settlement.name_org.startswith(prefix),
+                                            Settlement.name_org,
+                                        ),
+                                        (
+                                            Settlement.old_name_ua.startswith(prefix),
+                                            Settlement.old_name_ua,
+                                        ),
+                                        (
+                                            Settlement.old_name_org.startswith(prefix),
+                                            Settlement.old_name_org,
+                                        ),
+                                        else_=None,
+                                    ).distinct(),
+                                    Settlement.id,
+                                ).where(
+                                    Settlement.region_id == json["region_id"],
+                                    or_(
+                                        Settlement.name_org.startswith(prefix),
+                                        Settlement.name_ua.startswith(prefix),
+                                        Settlement.old_name_org.startswith(prefix),
+                                        Settlement.old_name_ua.startswith(prefix),
+                                    ),
                                 )
                             )
-                        )).all()
-                    ]
+                        ).all()
+                    ],
                 }
             case _:
                 return bad_request()

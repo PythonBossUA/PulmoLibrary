@@ -28,13 +28,13 @@ class Settlement(Base):
     name_org: Mapped[str] = mapped_column(
         "name:org", String(31), nullable=False
     )
-    name_ua: Mapped[str] = mapped_column(
+    name_ua: Mapped[str | None] = mapped_column(
         "name:ua", String(31), nullable=True
     )
-    old_name_org: Mapped[str] = mapped_column(
+    old_name_org: Mapped[str | None] = mapped_column(
         "old_name:org", String(31), nullable=True
     )
-    old_name_ua: Mapped[str] = mapped_column(
+    old_name_ua: Mapped[str | None] = mapped_column(
         "old_name:ua", String(31), nullable=True
     )
     region_id: Mapped[int] = mapped_column(
