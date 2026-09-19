@@ -13,7 +13,7 @@ class Base(DeclarativeBase):
 PSQL_DATABASE_URL = environ["DATABASE_URL"]
 psql_async_engine = create_async_engine(
     PSQL_DATABASE_URL,
-    echo=True,  # TODO set echo to False
+    echo=False,
     pool_pre_ping=True,
     connect_args={"statement_cache_size": 0, "ssl": "require"}
 )
@@ -21,7 +21,7 @@ psql_async_session = async_sessionmaker(psql_async_engine, class_=AsyncSession, 
 
 sqlite_async_engine = create_async_engine(
     SQLITE_DATABASE_URL,
-    echo=True,  # TODO set echo to False
+    echo=False,
 )
 sqlite_async_session = async_sessionmaker(sqlite_async_engine, class_=AsyncSession, expire_on_commit=False)
 

@@ -12,6 +12,7 @@ from sqlalchemy import insert, update
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 
 from models import User
+from database import psql_async_session
 
 router = Router()
 
@@ -23,9 +24,7 @@ async def start(message: Message):
 
 @router.message()
 async def handle_code(message: Message):
-    engine = create_async_engine(environ["DATABASE_URL"], echo=False)
-
-    async with AsyncSession(engine) as session:
+    async with psql_async_session as session:
         user = await session.scalar(
             update(User)
             .values(telegram_id=message.from_user.id)

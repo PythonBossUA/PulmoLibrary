@@ -1,12 +1,13 @@
-import jwt, orjson
+import jwt, orjson, asyncio
 
+from functools import lru_cache, wraps
 from os import environ, urandom
 from datetime import datetime, timedelta, timezone
 
 from typing import Annotated
 from datetime import date
 
-from fastapi import FastAPI, Depends, Request
+from fastapi import FastAPI, Depends, Request, Response
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 
@@ -15,11 +16,15 @@ from sqlalchemy import select, case, or_, exists, update
 from sqlalchemy.dialects.postgresql import insert as psql_insert
 
 from argon2 import PasswordHasher, Type
-from database import get_psql_session, get_sqlite_session
+from database import get_psql_session, get_sqlite_session, sqlite_async_session
 from models import User, VERIFIED_FLAG, UNVERIFIED_FLAG
 from run_sqlite import Region, Settlement
 
-app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+app = FastAPI(
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None
+)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
@@ -86,38 +91,86 @@ def format_phone_number(phone_number: str) -> str | None:
 
 
 def bad_request(message: str | None = None) -> dict:
-    return {
-        "type": "bad_request"
-        **({"message": message} if message else {})
-    }
+    return {"type": "bad_request" ** ({"message": message} if message else {})}
 
 
-async def get_settlement_by_id(id_: int, sqlite_session: AsyncSession) -> str | None:
-    return await sqlite_session.scalar(
-        select(
-            case(
-                (Settlement.name_ua.isnot(None), Settlement.name_ua),
-                (Settlement.name_org.isnot(None), Settlement.name_org),
-                (
-                    Settlement.old_name_ua.isnot(None),
-                    Settlement.old_name_ua,
-                ),
-                (
-                    Settlement.old_name_org.isnot(None),
-                    Settlement.old_name_org,
-                ),
-                else_=None,
-            )
-        ).where(Settlement.id == id_)
+@lru_cache(maxsize=1)
+async def get_regions_cached() -> dict[str, int]:
+    async with sqlite_async_session() as session:
+        return {
+            region.name: region.id
+            for region in (await session.scalars(select(Region))).all()
+        }
+
+async def get_settlement_and_region_by_id(
+    settlement_id: int, region_id: int, sqlite_session: AsyncSession
+) -> tuple[str, str]:
+    """
+    :return (settlement_name, region_name)
+    """
+    return await asyncio.gather(
+        sqlite_session.scalar(
+            select(
+                case(
+                    (Settlement.name_ua.isnot(None), Settlement.name_ua),
+                    (Settlement.name_org.isnot(None), Settlement.name_org),
+                    (
+                        Settlement.old_name_ua.isnot(None),
+                        Settlement.old_name_ua,
+                    ),
+                    (
+                        Settlement.old_name_org.isnot(None),
+                        Settlement.old_name_org,
+                    ),
+                    else_=None,
+                )
+            ).where(Settlement.id == settlement_id)
+        ),
+        sqlite_session.scalar(select(Region.name).where(Region.id == region_id)),
     )
 
 
-def jwt_builder(**kwargs) -> str:
-    kwargs.update(exp=datetime.now(timezone.utc) + jwt_exp)
-    return jwt.encode(payload=kwargs, key=jwt_secret_key, algorithm=jwt_algorithm)
+def jwt_builder(
+    user_id: int,
+    first_name: str,
+    last_name: str,
+    surname: str,
+    phone: str,
+    region: str,
+    settlement: str,
+    events_ok: str,
+) -> str:
+    return jwt.encode(
+        payload={
+            "id": user_id,
+            "first_name": first_name,
+            "last_name": last_name,
+            "surname": surname,
+            "phone": phone,
+            "region": region,
+            "settlement": settlement,
+            "events_ok": events_ok,
+            "exp": datetime.now(timezone.utc) + jwt_exp,
+        },
+        key=jwt_secret_key,
+        algorithm=jwt_algorithm,
+    )
+
+
+async def orjson_decorator(func):
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        return Response(
+            content=orjson.dumps(
+                await func(*args, **kwargs),
+            ),
+            media_type="application/json"
+        )
+    return wrapper
 
 
 @app.post("/events")
+@orjson_decorator
 async def events(request: Request, psql: psql_database, sqlite: sqlite_database):
     try:
         json = orjson.loads(await request.body())
@@ -206,7 +259,7 @@ async def events(request: Request, psql: psql_database, sqlite: sqlite_database)
                     "password": <str>
                 }
                 """
-                user = await psql.scalar(
+                user: User = await psql.scalar(
                     select(User).where(
                         User.first_name == normalize_name(json["first_name"]),
                         User.last_name == normalize_name(json["last_name"]),
@@ -222,22 +275,24 @@ async def events(request: Request, psql: psql_database, sqlite: sqlite_database)
                 ):
                     password_hasher.verify(user.hashed_password, json["password"])
 
+                    settlement_name, region_name = (
+                        await get_settlement_and_region_by_id(
+                            settlement_id=user.sqlite_settlement_id,
+                            region_id=user.sqlite_region_id,
+                            sqlite_session=sqlite,
+                        )
+                    )
+
                     return {
                         "type": "success_auth",
                         "jwt": jwt_builder(
-                            id=user.id,
+                            user_id=user.id,
                             first_name=user.first_name,
                             last_name=user.last_name,
                             surname=user.surname,
-                            phone_number=user.phone_number,
-                            region=await sqlite.scalar(
-                                select(Region.name).where(
-                                    Region.id == user.sqlite_region_id
-                                )
-                            ),
-                            settlement=await get_settlement_by_id(
-                                id_=json["settlement_id"], sqlite_session=sqlite
-                            ),
+                            phone=user.phone_number,
+                            region=region_name,
+                            settlement=settlement_name,
                             events_ok=user.events_ok,
                         ),
                     }
@@ -281,17 +336,11 @@ async def events(request: Request, psql: psql_database, sqlite: sqlite_database)
                     "settlement_id": <int>,
                 }
                 """
-                first_name, last_name, surname = (
-                    normalize_name(json["first_name"]),
-                    normalize_name(json["last_name"]),
-                    normalize_name(json["surname"]),
-                )
-
                 user = await psql.scalar(
                     select(User).where(
-                        User.first_name == first_name,
-                        User.last_name == last_name,
-                        User.surname == surname,
+                        User.first_name == normalize_name(json["first_name"]),
+                        User.last_name == normalize_name(json["last_name"]),
+                        User.surname == normalize_name(json["surname"]),
                         User.sqlite_region_id == json["region_id"],
                         User.sqlite_settlement_id == json["settlement_id"],
                         or_(
@@ -302,22 +351,22 @@ async def events(request: Request, psql: psql_database, sqlite: sqlite_database)
                 )
 
                 if user:
+                    settlement_name, region_name = await get_settlement_and_region_by_id(
+                        settlement_id=user.sqlite_settlement_id,
+                        region_id=user.sqlite_region_id,
+                        sqlite_session=sqlite
+                    )
+
                     return {
                         "type": "user_is_verified",
                         "jwt": jwt_builder(
-                            id=user.id,
+                            user_id=user.id,
                             first_name=user.first_name,
                             last_name=user.last_name,
-                            surname=surname,
-                            phone_number=user.phone_number,
-                            region=await sqlite.scalar(
-                                select(Region.name).where(
-                                    Region.id == json["region_id"]
-                                )
-                            ),
-                            settlement=await get_settlement_by_id(
-                                id_=json["settlement_id"], sqlite_session=sqlite
-                            ),
+                            surname=user.surname,
+                            phone=user.phone_number,
+                            region=region_name,
+                            settlement=settlement_name,
                             events_ok=user.events_ok,
                         ),
                     }
@@ -332,10 +381,7 @@ async def events(request: Request, psql: psql_database, sqlite: sqlite_database)
 
                 return {
                     "type": "regions_answer",
-                    "regions": [
-                        {region.name: region.id}
-                        for region in (await sqlite.scalars(select(Region))).all()
-                    ],
+                    "regions": await get_regions_cached,
                 }
 
             case "need_settlements":
