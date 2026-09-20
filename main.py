@@ -91,7 +91,7 @@ def format_phone_number(phone_number: str) -> str | None:
 
 
 def bad_request(message: str | None = None) -> dict:
-    return {"type": "bad_request" ** ({"message": message} if message else {})}
+    return {"type": "bad_request", **({"message": message} if message else {})}
 
 
 @lru_cache(maxsize=1)
@@ -217,7 +217,7 @@ async def events(request: Request, psql: psql_database, sqlite: sqlite_database)
                         events_ok=json["events_ok"],
                         sqlite_region_id=(
                             json["region_id"]
-                            if await sqlite.execute(
+                            if await sqlite.scalar(
                                 select(exists().where(Region.id == json["region_id"]))
                             )
                             else None  # None raises IntegrityError
@@ -310,7 +310,7 @@ async def events(request: Request, psql: psql_database, sqlite: sqlite_database)
                 }
                 """
                 psql_response = await psql.execute(
-                    update(User.telegram_id)
+                    update(User)
                     .values(telegram_id=UNVERIFIED_FLAG)
                     .where(
                         User.first_name == normalize_name(json["first_name"]),

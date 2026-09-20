@@ -9,7 +9,6 @@ from aiogram import Bot, Dispatcher, Router
 from aiogram.filters import CommandStart
 from aiogram.types import Message
 from sqlalchemy import insert, update
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 
 from models import User
 from database import psql_async_session
