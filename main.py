@@ -1,6 +1,6 @@
 import jwt, orjson, asyncio
 
-from functools import lru_cache, wraps
+from functools import wraps
 from os import environ, urandom
 from datetime import datetime, timedelta, timezone
 
@@ -20,11 +20,7 @@ from database import get_psql_session, get_sqlite_session, sqlite_async_session
 from models import User, VERIFIED_FLAG, UNVERIFIED_FLAG
 from run_sqlite import Region, Settlement
 
-app = FastAPI(
-    docs_url=None,
-    redoc_url=None,
-    openapi_url=None
-)
+app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
@@ -41,6 +37,21 @@ password_hasher = PasswordHasher(
 jwt_secret_key = environ["JWT_SECRET_KEY"]
 jwt_algorithm = "HS256"
 jwt_exp = timedelta(days=7)
+
+cached_regions: dict[str, int] | None = None
+
+
+async def cache_regions() -> None:
+    async with sqlite_async_session() as session:
+        global cached_regions
+        cached_regions = {
+            region.name: region.id
+            for region in (await session.scalars(select(Region))).all()
+        }
+
+
+asyncio.run(cache_regions())
+cached_region_ids = frozenset(cached_regions.values())
 
 months_dict = {
     1: "Січня",
@@ -94,22 +105,14 @@ def bad_request(message: str | None = None) -> dict:
     return {"type": "bad_request", **({"message": message} if message else {})}
 
 
-@lru_cache(maxsize=1)
-async def get_regions_cached() -> dict[str, int]:
-    async with sqlite_async_session() as session:
-        return {
-            region.name: region.id
-            for region in (await session.scalars(select(Region))).all()
-        }
-
 async def get_settlement_and_region_by_id(
     settlement_id: int, region_id: int, sqlite_session: AsyncSession
 ) -> tuple[str, str]:
     """
     :return (settlement_name, region_name)
     """
-    return await asyncio.gather(
-        sqlite_session.scalar(
+    return (
+        await sqlite_session.scalar(
             select(
                 case(
                     (Settlement.name_ua.isnot(None), Settlement.name_ua),
@@ -126,7 +129,7 @@ async def get_settlement_and_region_by_id(
                 )
             ).where(Settlement.id == settlement_id)
         ),
-        sqlite_session.scalar(select(Region.name).where(Region.id == region_id)),
+        cached_regions[region_id],
     )
 
 
@@ -157,15 +160,16 @@ def jwt_builder(
     )
 
 
-async def orjson_decorator(func):
+def orjson_decorator(func):
     @wraps(func)
     async def wrapper(*args, **kwargs):
         return Response(
             content=orjson.dumps(
                 await func(*args, **kwargs),
             ),
-            media_type="application/json"
+            media_type="application/json",
         )
+
     return wrapper
 
 
@@ -217,9 +221,7 @@ async def events(request: Request, psql: psql_database, sqlite: sqlite_database)
                         events_ok=json["events_ok"],
                         sqlite_region_id=(
                             json["region_id"]
-                            if await sqlite.scalar(
-                                select(exists().where(Region.id == json["region_id"]))
-                            )
+                            if json["region_id"] in cached_region_ids
                             else None  # None raises IntegrityError
                         ),
                         sqlite_settlement_id=(
@@ -271,7 +273,8 @@ async def events(request: Request, psql: psql_database, sqlite: sqlite_database)
                 )
 
                 if user and (
-                    user.telegram_id.isdigit() or user.telegram_id == VERIFIED_FLAG
+                    (user.telegram_id.isdigit() and len(user.telegram_id) != 6)
+                    or user.telegram_id == VERIFIED_FLAG
                 ):
                     password_hasher.verify(user.hashed_password, json["password"])
 
@@ -351,10 +354,12 @@ async def events(request: Request, psql: psql_database, sqlite: sqlite_database)
                 )
 
                 if user:
-                    settlement_name, region_name = await get_settlement_and_region_by_id(
-                        settlement_id=user.sqlite_settlement_id,
-                        region_id=user.sqlite_region_id,
-                        sqlite_session=sqlite
+                    settlement_name, region_name = (
+                        await get_settlement_and_region_by_id(
+                            settlement_id=user.sqlite_settlement_id,
+                            region_id=user.sqlite_region_id,
+                            sqlite_session=sqlite,
+                        )
                     )
 
                     return {
@@ -381,7 +386,7 @@ async def events(request: Request, psql: psql_database, sqlite: sqlite_database)
 
                 return {
                     "type": "regions_answer",
-                    "regions": await get_regions_cached,
+                    "regions": cached_regions,
                 }
 
             case "need_settlements":
@@ -404,23 +409,22 @@ async def events(request: Request, psql: psql_database, sqlite: sqlite_database)
                                 select(
                                     case(
                                         (
-                                            Settlement.name_ua.startswith(prefix),
+                                            Settlement.name_ua.isnot(None),
                                             Settlement.name_ua,
                                         ),
                                         (
-                                            Settlement.name_org.startswith(prefix),
+                                            Settlement.name_org.isnot(None),
                                             Settlement.name_org,
                                         ),
                                         (
-                                            Settlement.old_name_ua.startswith(prefix),
+                                            Settlement.old_name_ua.isnot(None),
                                             Settlement.old_name_ua,
                                         ),
                                         (
-                                            Settlement.old_name_org.startswith(prefix),
+                                            Settlement.old_name_org.isnot(None),
                                             Settlement.old_name_org,
                                         ),
-                                        else_=None,
-                                    ).distinct(),
+                                    ),
                                     Settlement.id,
                                 ).where(
                                     Settlement.region_id == json["region_id"],

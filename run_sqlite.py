@@ -7,7 +7,7 @@ from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-DATABASE_URL = "sqlite+aiosqlite:///settlements.db"
+DATABASE_URL = "sqlite+aiosqlite:///sqlite.db"
 
 
 class Base(DeclarativeBase):
