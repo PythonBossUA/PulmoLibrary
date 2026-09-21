@@ -1,14 +1,16 @@
 from os import environ
 from typing import AsyncGenerator
-from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 
-from run_sqlite import DATABASE_URL as SQLITE_DATABASE_URL
+from sqlalchemy import create_engine
+from sqlalchemy.orm import DeclarativeBase, sessionmaker, Session
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 
 
 class Base(DeclarativeBase):
     pass
 
+SQLITE_ASYNC_DATABASE_URL = "sqlite+aiosqlite:///sqlite.db"
+SQLITE_SYNC_DATABASE_URL = SQLITE_ASYNC_DATABASE_URL.replace("+aiosqlite", "")
 
 PSQL_DATABASE_URL = environ["DATABASE_URL"]
 psql_async_engine = create_async_engine(
@@ -20,10 +22,16 @@ psql_async_engine = create_async_engine(
 psql_async_session = async_sessionmaker(psql_async_engine, class_=AsyncSession, expire_on_commit=False)
 
 sqlite_async_engine = create_async_engine(
-    SQLITE_DATABASE_URL,
+    SQLITE_ASYNC_DATABASE_URL,
     echo=False,
 )
+sqlite_sync_engine = create_engine(
+    SQLITE_SYNC_DATABASE_URL,
+    echo=False
+)
+
 sqlite_async_session = async_sessionmaker(sqlite_async_engine, class_=AsyncSession, expire_on_commit=False)
+sqlite_sync_session = sessionmaker(sqlite_sync_engine, class_=Session)
 
 
 async def get_psql_session() -> AsyncGenerator[AsyncSession, None]:

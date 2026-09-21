@@ -4,14 +4,8 @@ import csv
 # !!! No import from FastAPI project !!!
 from sqlalchemy import String, ForeignKey, Integer, UniqueConstraint
 from sqlalchemy.dialects.sqlite import insert
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-
-DATABASE_URL = "sqlite+aiosqlite:///sqlite.db"
-
-
-class Base(DeclarativeBase):
-    pass
+from sqlalchemy.orm import Mapped, mapped_column
+from database import Base, sqlite_async_engine, sqlite_async_session
 
 
 class Region(Base):
@@ -49,12 +43,10 @@ class Settlement(Base):
 
 
 async def main():
-    engine = create_async_engine(DATABASE_URL, echo=False)
-
-    async with engine.begin() as conn:
+    async with sqlite_async_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-    async with AsyncSession(engine) as session:
+    async with sqlite_async_session() as session:
         with open("ua-name-places.csv", mode="r", newline="", encoding="utf-8") as file:
             reader = csv.reader(file, delimiter=",")
 
@@ -101,7 +93,7 @@ async def main():
                 settlements,
             )
             await session.commit()
-    await engine.dispose()
+    await sqlite_async_engine.dispose()
 
 if __name__ == "__main__":
     asyncio.run(main())

@@ -1,4 +1,4 @@
-import jwt, orjson, asyncio
+import jwt, orjson
 
 from functools import wraps
 from os import environ, urandom
@@ -16,7 +16,7 @@ from sqlalchemy import select, case, or_, exists, update
 from sqlalchemy.dialects.postgresql import insert as psql_insert
 
 from argon2 import PasswordHasher, Type
-from database import get_psql_session, get_sqlite_session, sqlite_async_session
+from database import get_psql_session, get_sqlite_session, sqlite_sync_session
 from models import User, VERIFIED_FLAG, UNVERIFIED_FLAG
 from run_sqlite import Region, Settlement
 
@@ -38,19 +38,10 @@ jwt_secret_key = environ["JWT_SECRET_KEY"]
 jwt_algorithm = "HS256"
 jwt_exp = timedelta(days=7)
 
-cached_regions: dict[str, int] | None = None
-
-
-async def cache_regions() -> None:
-    async with sqlite_async_session() as session:
-        global cached_regions
-        cached_regions = {
-            region.name: region.id
-            for region in (await session.scalars(select(Region))).all()
-        }
-
-
-asyncio.run(cache_regions())
+with sqlite_sync_session() as session:
+    cached_regions = {
+        region.name: region.id for region in (session.scalars(select(Region))).all()
+    }
 cached_region_ids = frozenset(cached_regions.values())
 
 months_dict = {
@@ -87,7 +78,7 @@ async def index(request: Request):
 
 
 def normalize_name(name: str) -> str | None:
-    return name.strip().capitalize() if len(name) >= 2 else None
+    return name.strip().capitalize() if len(name) >= 2 and name.isalpha() else None
 
 
 def format_phone_number(phone_number: str) -> str | None:
