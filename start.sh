@@ -1,16 +1,15 @@
 #!/bin/sh
 
-export $(cat .env | xargs)
+export $(cat .env | xargs) # LF(no CRLF)
 pip install -r requirements.txt --no-cache-dir
-python -B -X dev run_sqlite.py
-python -B -X dev telegram_bot.py &
+python -B -O run_sqlite.py
+python -B -O telegram_bot.py &
 granian \
   --interface asgi \
   --host 127.0.0.1 \
   --port 8000 \
-  --workers 3 \
+  --workers 1 \
   --no-ws \
-  --no-log \
   main:app
 
 #granian \

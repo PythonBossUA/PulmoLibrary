@@ -55,10 +55,8 @@ class User(Base):
             "sqlite_settlement_id",
             name="unique_user"
         ),
-        Index(
-            "unique_telegram_id",
+        UniqueConstraint(
             "telegram_id",
-            unique=True,
-            postgresql_where=text("telegram_id ~ '^[0-9]+$'"),
+            name="unique_telegram_id",
         )
     )

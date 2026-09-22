@@ -71,8 +71,15 @@ async def main():
             region_name_and_id = dict(
                 (
                     await session.execute(
-                        insert(Region).returning(Region.name, Region.id),
-                        ({"name": name} for name in regions),
+                        insert(Region)
+                        .on_conflict_do_update(
+                            index_elements=("name",),
+                            set_={
+                                Region.name: Region.name # fake update
+                            }
+                        )
+                        .returning(Region.name, Region.id),
+                        ({"name": name} for name in regions)
                     )
                 ).all()
             )

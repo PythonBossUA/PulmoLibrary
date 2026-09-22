@@ -39,10 +39,13 @@ jwt_algorithm = "HS256"
 jwt_exp = timedelta(days=7)
 
 with sqlite_sync_session() as session:
-    cached_regions = {
-        region.name: region.id for region in (session.scalars(select(Region))).all()
+    regions = session.scalars(select(Region)).all()
+    cached_regions_to_response = {
+        region.name: region.id for region in regions
     }
-cached_region_ids = frozenset(cached_regions.values())
+    cached_regions = {
+        region.id: region.name for region in regions
+    }
 
 months_dict = {
     1: "Січня",
@@ -96,31 +99,18 @@ def bad_request(message: str | None = None) -> dict:
     return {"type": "bad_request", **({"message": message} if message else {})}
 
 
-async def get_settlement_and_region_by_id(
-    settlement_id: int, region_id: int, sqlite_session: AsyncSession
-) -> tuple[str, str]:
-    """
-    :return (settlement_name, region_name)
-    """
-    return (
-        await sqlite_session.scalar(
-            select(
-                case(
-                    (Settlement.name_ua.isnot(None), Settlement.name_ua),
-                    (Settlement.name_org.isnot(None), Settlement.name_org),
-                    (
-                        Settlement.old_name_ua.isnot(None),
-                        Settlement.old_name_ua,
-                    ),
-                    (
-                        Settlement.old_name_org.isnot(None),
-                        Settlement.old_name_org,
-                    ),
-                    else_=None,
-                )
-            ).where(Settlement.id == settlement_id)
-        ),
-        cached_regions[region_id],
+async def get_settlement_by_id(
+    settlement_id: int, sqlite_session: AsyncSession
+) -> str:
+    return await sqlite_session.scalar(
+        select(
+            case(
+                (Settlement.name_ua.isnot(None), Settlement.name_ua),
+                (Settlement.name_org.isnot(None), Settlement.name_org),
+                (Settlement.old_name_ua.isnot(None), Settlement.old_name_ua),
+                (Settlement.old_name_org.isnot(None), Settlement.old_name_org)
+            )
+        ).where(Settlement.id == settlement_id)
     )
 
 
@@ -199,7 +189,7 @@ async def events(request: Request, psql: psql_database, sqlite: sqlite_database)
 
                 hashed_password = password_hasher.hash(json["password"])
 
-                telegram_code = urandom(3).hex()
+                telegram_code = urandom(4).hex()
                 psql_response = await psql.execute(
                     psql_insert(User)
                     .values(
@@ -212,7 +202,7 @@ async def events(request: Request, psql: psql_database, sqlite: sqlite_database)
                         events_ok=json["events_ok"],
                         sqlite_region_id=(
                             json["region_id"]
-                            if json["region_id"] in cached_region_ids
+                            if json["region_id"] in cached_regions
                             else None  # None raises IntegrityError
                         ),
                         sqlite_settlement_id=(
@@ -220,7 +210,8 @@ async def events(request: Request, psql: psql_database, sqlite: sqlite_database)
                             if await sqlite.scalar(
                                 select(
                                     exists().where(
-                                        Settlement.id == json["settlement_id"]
+                                        Settlement.id == json["settlement_id"],
+                                        Settlement.region_id == json["region_id"],
                                     )
                                 )
                             )
@@ -264,18 +255,16 @@ async def events(request: Request, psql: psql_database, sqlite: sqlite_database)
                 )
 
                 if user and (
-                    (user.telegram_id.isdigit() and len(user.telegram_id) != 6)
+                    (user.telegram_id.isdigit() and len(user.telegram_id) != 8)
                     or user.telegram_id == VERIFIED_FLAG
                 ):
                     password_hasher.verify(user.hashed_password, json["password"])
 
-                    settlement_name, region_name = (
-                        await get_settlement_and_region_by_id(
+                    settlement_name = await get_settlement_by_id(
                             settlement_id=user.sqlite_settlement_id,
-                            region_id=user.sqlite_region_id,
-                            sqlite_session=sqlite,
-                        )
+                            sqlite_session=sqlite
                     )
+                    region_name = cached_regions[user.sqlite_region_id]
 
                     return {
                         "type": "success_auth",
@@ -313,10 +302,16 @@ async def events(request: Request, psql: psql_database, sqlite: sqlite_database)
                         User.phone_number == format_phone_number(json["phone_number"]),
                         User.sqlite_region_id == json["region_id"],
                         User.sqlite_settlement_id == json["settlement_id"],
+                        or_(
+                            User.telegram_id.op("!~")("^[[:digit:]]+$"),
+                            User.telegram_id != VERIFIED_FLAG,
+                        )
                     )
                 )
                 if psql_response.rowcount == 0:
-                    return bad_request()
+                    return bad_request("Користувача не знайдено або його уже підтверджено")
+
+                await psql.commit()
                 return {"type": "not_verify_ok"}
 
             case "user_is_verified":
@@ -325,8 +320,10 @@ async def events(request: Request, psql: psql_database, sqlite: sqlite_database)
                     "type": "user_is_verified",
                     "first_name": <str>,
                     "last_name": <str>,
+                    "phone_number": <str>,
                     "surname": <str>,
                     "region_id": <int>,
+                    "password": <str>,
                     "settlement_id": <int>,
                 }
                 """
@@ -335,6 +332,7 @@ async def events(request: Request, psql: psql_database, sqlite: sqlite_database)
                         User.first_name == normalize_name(json["first_name"]),
                         User.last_name == normalize_name(json["last_name"]),
                         User.surname == normalize_name(json["surname"]),
+                        User.phone_number == format_phone_number(json["phone_number"]),
                         User.sqlite_region_id == json["region_id"],
                         User.sqlite_settlement_id == json["settlement_id"],
                         or_(
@@ -345,13 +343,13 @@ async def events(request: Request, psql: psql_database, sqlite: sqlite_database)
                 )
 
                 if user:
-                    settlement_name, region_name = (
-                        await get_settlement_and_region_by_id(
-                            settlement_id=user.sqlite_settlement_id,
-                            region_id=user.sqlite_region_id,
-                            sqlite_session=sqlite,
-                        )
+                    password_hasher.verify(user.hashed_password, json["password"])
+
+                    settlement_name = await get_settlement_by_id(
+                        settlement_id=user.sqlite_settlement_id,
+                        sqlite_session=sqlite
                     )
+                    region_name = cached_regions[user.sqlite_region_id]
 
                     return {
                         "type": "user_is_verified",
@@ -377,7 +375,7 @@ async def events(request: Request, psql: psql_database, sqlite: sqlite_database)
 
                 return {
                     "type": "regions_answer",
-                    "regions": cached_regions,
+                    "regions": cached_regions_to_response,
                 }
 
             case "need_settlements":

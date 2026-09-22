@@ -5,7 +5,7 @@ from os import environ
 from aiogram import Bot, Dispatcher, Router
 from aiogram.filters import CommandStart
 from aiogram.types import Message
-from sqlalchemy import update, select, case
+from sqlalchemy import update, select, case, exists
 
 from models import User
 from run_sqlite import Region, Settlement
@@ -13,7 +13,9 @@ from database import psql_async_session, sqlite_sync_session, sqlite_async_sessi
 
 request_counter: int = 0
 user_attempts: dict[str, tuple[datetime, int]] = {}
-retry_after = timedelta(days=1)
+retry_after = timedelta(hours=2)
+code_len = 8 # eq len(os.urandom(4).hex())
+
 with sqlite_sync_session() as session:
     cached_regions = {
         region.id: region.name for region in (session.scalars(select(Region))).all()
@@ -21,53 +23,40 @@ with sqlite_sync_session() as session:
 
 
 def declension(one: str, few: str, many: str, number: int) -> str:
-    n = abs(number) % 100
-    return (
-        many
-        if 11 <= n <= 19
-        else (many, one, few, few, few, many, many, many, many, many)[n % 10]
-    )
+    n = number % 100
+    n1 = n % 10
+    if 11 <= n <= 19:
+        return many
+    if n1 == 1:
+        return one
+    if 2 <= n1 <= 4:
+        return few
+    return many
 
 
-router = Router()
-
-
-@router.message(CommandStart())
-async def start(message: Message):
-    await message.answer("Скажи код перевірки🤗")
-
-
-@router.message()
-async def handle_code(message: Message):
+def rate_limiter(tg_id: str) -> str | None:
     global request_counter
     request_counter += 1
 
     now = datetime.now()
-    if request_counter == 100:
+    if request_counter == 256:
         request_counter = 0
         expired_keys = [
-            user_id for user_id, (check_time, _) in user_attempts.items()
+            user_id
+            for user_id, (check_time, _) in user_attempts.items()
             if check_time + retry_after < now
         ]
         for key in expired_keys:
             del user_attempts[key]
 
-    if not message.text or len(message.text) != 6 or not message.text.isalnum():
-        if message.text:
-            await message.answer("Код точно має бути 6 символів🤔*(та лише a-z | 0-9)*", parse_mode="Markdown")
-        return
-
-    telegram_user_id = str(message.from_user.id)
-    tuple_attempts = user_attempts.get(telegram_user_id)
-
-    if tuple_attempts:
+    if tuple_attempts := user_attempts.get(tg_id):
         check_time, attempts = tuple_attempts
         future_time = check_time + retry_after
 
         if attempts != 10:
-            user_attempts[telegram_user_id] = (now, attempts + 1)
+            user_attempts[tg_id] = (check_time, attempts + 1)
         elif future_time < now:
-            user_attempts[telegram_user_id] = (now, 1)
+            user_attempts[tg_id] = (now, 1)
         else:
             delta = (future_time - now).seconds
             hours, minutes, seconds = (
@@ -75,8 +64,8 @@ async def handle_code(message: Message):
                 (delta % 3600) // 60,
                 delta % 60,
             )
-            await message.answer(
-                "Занадто багато неправильних кодів😴\n"
+            return (
+                "Занадто багато безглуздих запитів😴\n"
                 "Можеш подати заявку перевірки *керівником сайту*\n"
                 f"Або зачекай *"
                 + (
@@ -85,7 +74,7 @@ async def handle_code(message: Message):
                     else ""
                 )
                 + (
-                    f"{minutes} {declension('хвилину','хвилини', 'хвилин', number=minutes)} "
+                    f"{minutes} {declension('хвилину', 'хвилини', 'хвилин', number=minutes)} "
                     if minutes
                     else ""
                 )
@@ -94,53 +83,128 @@ async def handle_code(message: Message):
                     if seconds
                     else ""
                 )
-                + "*",
-                parse_mode="Markdown",
+                + "*"
             )
-            return
     else:
-        user_attempts[telegram_user_id] = (now, 1)
+        user_attempts[tg_id] = (now, 1)
+
+
+router = Router()
+
+
+@router.message(CommandStart())
+async def start(message: Message):
+    tg_id = str(message.from_user.id)
+
+    if isinstance(msg := rate_limiter(tg_id), str):
+        await message.answer(msg, parse_mode="Markdown")
+        return
 
     async with psql_async_session() as psql:
+        user = await psql.scalar(select(User).where(User.telegram_id == tg_id))
+        if not user:
+            await message.answer("Скажи код перевірки🤗")
+            return
+
+        region = cached_regions[user.sqlite_region_id]
+        async with sqlite_async_session() as sqlite:
+            settlement = await sqlite.scalar(
+                select(
+                    case(
+                        (Settlement.name_ua.isnot(None), Settlement.name_ua),
+                        (Settlement.name_org.isnot(None), Settlement.name_org),
+                        (
+                            Settlement.old_name_ua.isnot(None),
+                            Settlement.old_name_ua,
+                        ),
+                        (
+                            Settlement.old_name_org.isnot(None),
+                            Settlement.old_name_org,
+                        ),
+                    )
+                ).where(Settlement.id == user.sqlite_settlement_id)
+            )
+
+            await message.answer(
+                "За вами закріплено користувача:\n"
+                f" *Ім'я:* {user.last_name} {user.first_name} {user.surname}\n"
+                f" *Телефон:* +38{user.phone_number}\n"
+                f" *Участь в заходах:* {'Так' if user.events_ok else 'Ні'}\n"
+                f" *Локація:* {region} - {settlement}\n",
+                parse_mode="Markdown",
+            )
+
+
+@router.message()
+async def handle_code(message: Message):
+    tg_id = str(message.from_user.id)
+
+    if isinstance(msg := rate_limiter(tg_id), str):
+        await message.answer(msg, parse_mode="Markdown")
+        return
+
+    async with psql_async_session() as psql:
+        if await psql.scalar(
+            select(
+                exists()
+                    .where(
+                    User.telegram_id == tg_id
+                )
+            )
+        ):
+            await message.answer("Код не потрібно☺️ Вашого користувача уже підтверджено")
+            return
+
+        if not message.text:
+            await message.answer(
+                "Код містить лише *a-z | 0-9* символи", parse_mode="Markdown"
+            )
+            return
+
+        if len(message.text) != code_len or not message.text.isalnum():
+            await message.answer(f"Код точно має бути {code_len} символів🤔")
+            return
+
         async with sqlite_async_session() as sqlite:
             user = await psql.scalar(
                 update(User)
-                .values(telegram_id=telegram_user_id)
+                .values(telegram_id=tg_id)
                 .where(User.telegram_id == message.text.lower())
                 .returning(User)
             )
 
-            if user:
-                region = cached_regions[user.sqlite_region_id]
-                settlement = await sqlite.scalar(
-                    select(
-                        case(
-                            (Settlement.name_ua.isnot(None), Settlement.name_ua),
-                            (Settlement.name_org.isnot(None), Settlement.name_org),
-                            (
-                                Settlement.old_name_ua.isnot(None),
-                                Settlement.old_name_ua,
-                            ),
-                            (
-                                Settlement.old_name_org.isnot(None),
-                                Settlement.old_name_org,
-                            ),
-                        )
-                    ).where(Settlement.id == user.sqlite_settlement_id)
-                )
-                await psql.commit()
-
-                await message.answer(
-                    "*Код отримано🥰*\n\n"
-                    "--- *Ваш користувач:* ---\n"
-                    f" · *Ім'я:* {user.last_name} {user.first_name} {user.surname}\n"
-                    f" · *Телефон:* +38{user.phone_number}\n"
-                    f" · *Участь в заходах:* {'Так' if user.events_ok else 'Ні'}\n"
-                    f" · *Локація:* {region} - {settlement}\n",
-                    parse_mode="Markdown",
-                )
+            if not user:
+                await message.answer("Чекай... це точно правильний код?🥺")
                 return
-            await message.answer("Чекай... це точно правильний код?🥺")
+
+            region = cached_regions[user.sqlite_region_id]
+            settlement = await sqlite.scalar(
+                select(
+                    case(
+                        (Settlement.name_ua.isnot(None), Settlement.name_ua),
+                        (Settlement.name_org.isnot(None), Settlement.name_org),
+                        (
+                            Settlement.old_name_ua.isnot(None),
+                            Settlement.old_name_ua,
+                        ),
+                        (
+                            Settlement.old_name_org.isnot(None),
+                            Settlement.old_name_org,
+                        ),
+                    )
+                ).where(Settlement.id == user.sqlite_settlement_id)
+            )
+            await psql.commit()
+
+            await message.answer(
+                "*Код отримано🥰*\n\n"
+                "--- *Ваш користувач:* ---\n"
+                f" · *Ім'я:* {user.last_name} {user.first_name} {user.surname}\n"
+                f" · *Телефон:* +38{user.phone_number}\n"
+                f" · *Участь в заходах:* {'Так' if user.events_ok else 'Ні'}\n"
+                f" · *Локація:* {region} - {settlement}\n",
+                parse_mode="Markdown",
+            )
 
 
 async def main():
