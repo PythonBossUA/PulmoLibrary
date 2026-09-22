@@ -14,7 +14,7 @@ from database import psql_async_session, sqlite_sync_session, sqlite_async_sessi
 request_counter: int = 0
 user_attempts: dict[str, tuple[datetime, int]] = {}
 retry_after = timedelta(hours=2)
-code_len = 8 # eq len(os.urandom(4).hex())
+code_len = 8  # eq len(os.urandom(4).hex())
 
 with sqlite_sync_session() as session:
     cached_regions = {
@@ -144,15 +144,10 @@ async def handle_code(message: Message):
         return
 
     async with psql_async_session() as psql:
-        if await psql.scalar(
-            select(
-                exists()
-                    .where(
-                    User.telegram_id == tg_id
-                )
+        if await psql.scalar(select(exists().where(User.telegram_id == tg_id))):
+            await message.answer(
+                "Код не потрібно☺️ Вашого користувача уже підтверджено"
             )
-        ):
-            await message.answer("Код не потрібно☺️ Вашого користувача уже підтверджено")
             return
 
         if not message.text:
