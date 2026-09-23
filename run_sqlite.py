@@ -4,8 +4,12 @@ import csv
 # !!! No import from FastAPI project !!!
 from sqlalchemy import String, ForeignKey, Integer, UniqueConstraint
 from sqlalchemy.dialects.sqlite import insert
-from sqlalchemy.orm import Mapped, mapped_column
-from database import Base, sqlite_async_engine, sqlite_async_session
+from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase
+from database import sqlite_async_engine, sqlite_async_session
+
+
+class Base(DeclarativeBase):
+    pass
 
 
 class Region(Base):

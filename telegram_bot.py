@@ -174,7 +174,7 @@ async def handle_code(message: Message):
             return
 
         if len(message.text) != token_length or not message.text.isalnum():
-            await message.answer(f"Код точно має бути {code_len} символів🤔")
+            await message.answer(f"Код точно має бути {token_length} символів🤔")
             return
 
         async with sqlite_async_session() as sqlite:

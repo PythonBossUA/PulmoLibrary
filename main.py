@@ -133,11 +133,11 @@ def bad_request(message: str | None = None) -> dict:
         "status": 400,
     }
 
-
+apstf_remove = str.maketrans({"`": "a", "'": "a"})
 def normalize_name(name: str) -> str | None:
     return (
         name.strip().capitalize()
-        if len(name) >= 2 and not any([c.isdigit() for c in name])
+        if len(name) >= 2 and name.translate(apstf_remove).isalpha()
         else None
     )
 
@@ -321,13 +321,12 @@ async def auth(json: OrJson_Body, psql: Psql_Database, sqlite: Sqlite_Database):
     ):
         try:
             password_hasher.verify(user.hashed_password, json["password"])
+            return {
+                "type": "success_auth",
+                "jwt": await jwt_builder(user, sqlite),
+            }
         except VerificationError:
-            return bad_request(message="Неправильний пароль")
-
-        return {
-            "type": "success_auth",
-            "jwt": await jwt_builder(user, sqlite),
-        }
+            pass
 
     return bad_request(message="Неправильні дані")
 
@@ -419,6 +418,7 @@ async def need_regions():
 @app.post("/need_settlements")
 @orjson_decorator
 async def need_settlements(json: OrJson_Body, sqlite: Sqlite_Database):
+    # TODO optimized sqlite request on index
     """
     json:input {
         "settlement_startname": <str>,
