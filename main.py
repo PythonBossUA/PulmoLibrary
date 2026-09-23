@@ -2,7 +2,7 @@ import jwt, orjson
 
 from functools import wraps
 from contextlib import AsyncExitStack
-from os import environ, urandom
+from os import environ
 from datetime import datetime, timedelta, timezone, date
 from typing import Annotated
 
@@ -16,7 +16,13 @@ from sqlalchemy import select, case, or_, exists, update
 from sqlalchemy.dialects.postgresql import insert as psql_insert
 
 from argon2 import PasswordHasher, Type
-from database import get_psql_session, get_sqlite_session, sqlite_sync_session
+from argon2.exceptions import VerificationError
+from database import (
+    get_psql_session,
+    get_sqlite_session,
+    sqlite_sync_session,
+    generate_valid_token,
+)
 from models import User, VERIFIED_FLAG, UNVERIFIED_FLAG
 from run_sqlite import Region, Settlement
 
@@ -121,11 +127,19 @@ months_dict = {
 
 
 def bad_request(message: str | None = None) -> dict:
-    return {"type": "bad_request", **({"message": message} if message else {})}
+    return {
+        **({"message": message} if message else {}),
+        "type": "bad_request",
+        "status": 400,
+    }
 
 
 def normalize_name(name: str) -> str | None:
-    return name.strip().capitalize() if len(name) >= 2 and name.isalpha() else None
+    return (
+        name.strip().capitalize()
+        if len(name) >= 2 and not any([c.isdigit() for c in name])
+        else None
+    )
 
 
 def format_phone_number(phone_number: str) -> str | None:
@@ -178,10 +192,10 @@ async def jwt_builder(user: User, sqlite: AsyncSession) -> str:
 def orjson_decorator(func):
     @wraps(func)
     async def wrapper(*args, **kwargs):
+        res: dict = await func(*args, **kwargs)
         return Response(
-            content=orjson.dumps(
-                await func(*args, **kwargs),
-            ),
+            status_code=res.pop("status", 200),
+            content=orjson.dumps(res),
             media_type="application/json",
         )
 
@@ -210,7 +224,6 @@ async def index(request: Request):
 async def registration(json: OrJson_Body, psql: Psql_Database, sqlite: Sqlite_Database):
     """
     json:input {
-        "type": "registration",
         "first_name": <str>,
         "last_name": <str>,
         "surname": <str>,
@@ -234,7 +247,8 @@ async def registration(json: OrJson_Body, psql: Psql_Database, sqlite: Sqlite_Da
         return bad_request()
 
     hashed_password = password_hasher.hash(json["password"])
-    telegram_code = urandom(4).hex()
+
+    telegram_token = generate_valid_token()
 
     psql_response = await psql.execute(
         psql_insert(User)
@@ -242,7 +256,7 @@ async def registration(json: OrJson_Body, psql: Psql_Database, sqlite: Sqlite_Da
             first_name=first_name,
             last_name=last_name,
             surname=surname,
-            telegram_id=telegram_code,
+            verification=f"token:{telegram_token}",
             phone_number=phone_number,
             hashed_password=hashed_password,
             events_ok=json["events_ok"],
@@ -274,7 +288,7 @@ async def registration(json: OrJson_Body, psql: Psql_Database, sqlite: Sqlite_Da
 
     return {
         "type": "success_create",
-        "telegram_code": telegram_code,
+        "telegram_token": telegram_token,
     }
 
 
@@ -283,7 +297,6 @@ async def registration(json: OrJson_Body, psql: Psql_Database, sqlite: Sqlite_Da
 async def auth(json: OrJson_Body, psql: Psql_Database, sqlite: Sqlite_Database):
     """
     json:input {
-        "type": "auth",
         "first_name": <str>,
         "last_name": <str>,
         "surname": <str>,
@@ -304,10 +317,12 @@ async def auth(json: OrJson_Body, psql: Psql_Database, sqlite: Sqlite_Database):
         )
     )
     if user and (
-        (user.telegram_id.isdigit() and len(user.telegram_id) != 8)
-        or user.telegram_id == VERIFIED_FLAG
+        user.verification.startswith("tg_id") or user.verification == VERIFIED_FLAG
     ):
-        password_hasher.verify(user.hashed_password, json["password"])
+        try:
+            password_hasher.verify(user.hashed_password, json["password"])
+        except VerificationError:
+            return bad_request(message="Неправильний пароль")
 
         return {
             "type": "success_auth",
@@ -322,7 +337,6 @@ async def auth(json: OrJson_Body, psql: Psql_Database, sqlite: Sqlite_Database):
 async def do_not_verify_telegram(json: OrJson_Body, psql: Psql_Database):
     """
     json:input {
-        "type": "do_not_verify_telegram",
         "first_name": <str>,
         "last_name": <str>,
         "surname": <str>,
@@ -333,7 +347,7 @@ async def do_not_verify_telegram(json: OrJson_Body, psql: Psql_Database):
     """
     psql_response = await psql.execute(
         update(User)
-        .values(telegram_id=UNVERIFIED_FLAG)
+        .values(verification=UNVERIFIED_FLAG)
         .where(
             User.first_name == normalize_name(json["first_name"]),
             User.last_name == normalize_name(json["last_name"]),
@@ -341,10 +355,8 @@ async def do_not_verify_telegram(json: OrJson_Body, psql: Psql_Database):
             User.phone_number == format_phone_number(json["phone_number"]),
             User.sqlite_region_id == json["region_id"],
             User.sqlite_settlement_id == json["settlement_id"],
-            or_(
-                User.telegram_id.op("!~")("^[[:digit:]]+$"),
-                User.telegram_id != VERIFIED_FLAG,
-            ),
+            User.verification != VERIFIED_FLAG,
+            ~User.verification.startswith("tg_id"),
         )
     )
     if psql_response.rowcount == 0:
@@ -361,7 +373,6 @@ async def user_is_verified(
 ):
     """
     json:input {
-        "type": "user_is_verified",
         "first_name": <str>,
         "last_name": <str>,
         "phone_number": <str>,
@@ -380,8 +391,8 @@ async def user_is_verified(
             User.sqlite_region_id == json["region_id"],
             User.sqlite_settlement_id == json["settlement_id"],
             or_(
-                User.telegram_id.op("~")("^[[:digit:]]+$"),
-                User.telegram_id == VERIFIED_FLAG,
+                User.verification.startswith("tg_id"),
+                User.verification == VERIFIED_FLAG,
             ),
         )
     )
@@ -391,7 +402,7 @@ async def user_is_verified(
 
         return {
             "type": "user_is_verified",
-            "jwt": jwt_builder(user, sqlite),
+            "jwt": await jwt_builder(user, sqlite),
         }
     return {"type": "user_is_unverified"}
 
@@ -399,11 +410,6 @@ async def user_is_verified(
 @app.post("/need_regions")
 @orjson_decorator
 async def need_regions():
-    """
-    json:input {
-        "type": "need_regions"
-    }
-    """
     return {
         "type": "regions_answer",
         "regions": cached_regions_to_response,
@@ -415,12 +421,12 @@ async def need_regions():
 async def need_settlements(json: OrJson_Body, sqlite: Sqlite_Database):
     """
     json:input {
-        "type": "need_settlements",
         "settlement_startname": <str>,
         "region_id": <int>
     }
     """
-    prefix = json["settlement_startname"].capitalize()
+    if not (prefix := json["settlement_startname"].capitalize()) or len(prefix) < 2:
+        return bad_request()
 
     return {
         "type": "settlements_answer",

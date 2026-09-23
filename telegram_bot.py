@@ -9,12 +9,17 @@ from sqlalchemy import update, select, case, exists
 
 from models import User
 from run_sqlite import Region, Settlement
-from database import psql_async_session, sqlite_sync_session, sqlite_async_session
+from database import (
+    psql_async_session,
+    sqlite_sync_session,
+    sqlite_async_session,
+    verification_re_index,
+    token_length,
+)
 
 request_counter: int = 0
 user_attempts: dict[str, tuple[datetime, int]] = {}
 retry_after = timedelta(hours=2)
-code_len = 8  # eq len(os.urandom(4).hex())
 
 with sqlite_sync_session() as session:
     cached_regions = {
@@ -101,7 +106,12 @@ async def start(message: Message):
         return
 
     async with psql_async_session() as psql:
-        user = await psql.scalar(select(User).where(User.telegram_id == tg_id))
+        user = await psql.scalar(
+            select(User).where(
+                User.verification.op("~")(verification_re_index),
+                User.verification == f"tg_id:{tg_id}",
+            )
+        )
         if not user:
             await message.answer("Скажи код перевірки🤗")
             return
@@ -144,7 +154,14 @@ async def handle_code(message: Message):
         return
 
     async with psql_async_session() as psql:
-        if await psql.scalar(select(exists().where(User.telegram_id == tg_id))):
+        if await psql.scalar(
+            select(
+                exists().where(
+                    User.verification.op("~")(verification_re_index),
+                    User.verification == f"tg_id:{tg_id}",
+                )
+            )
+        ):
             await message.answer(
                 "Код не потрібно☺️ Вашого користувача уже підтверджено"
             )
@@ -156,15 +173,18 @@ async def handle_code(message: Message):
             )
             return
 
-        if len(message.text) != code_len or not message.text.isalnum():
+        if len(message.text) != token_length or not message.text.isalnum():
             await message.answer(f"Код точно має бути {code_len} символів🤔")
             return
 
         async with sqlite_async_session() as sqlite:
             user = await psql.scalar(
                 update(User)
-                .values(telegram_id=tg_id)
-                .where(User.telegram_id == message.text.lower())
+                .values(verification=f"tg_id:{tg_id}")
+                .where(
+                    User.verification.op("~")(verification_re_index),
+                    User.verification == f"token:{message.text}",
+                )
                 .returning(User)
             )
 

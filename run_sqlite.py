@@ -19,12 +19,8 @@ class Settlement(Base):
     __tablename__ = "settlements"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    name_org: Mapped[str] = mapped_column(
-        "name:org", String(31), nullable=False
-    )
-    name_ua: Mapped[str | None] = mapped_column(
-        "name:ua", String(31), nullable=True
-    )
+    name_org: Mapped[str] = mapped_column("name:org", String(31), nullable=False)
+    name_ua: Mapped[str | None] = mapped_column("name:ua", String(31), nullable=True)
     old_name_org: Mapped[str | None] = mapped_column(
         "old_name:org", String(31), nullable=True
     )
@@ -32,13 +28,13 @@ class Settlement(Base):
         "old_name:ua", String(31), nullable=True
     )
     region_id: Mapped[int] = mapped_column(
-        "region:id",
-        ForeignKey("regions.id"),
-        nullable=False
+        "region:id", ForeignKey("regions.id"), nullable=False
     )
 
     __table_args__ = (
-        UniqueConstraint("name:org", "name:ua", "old_name:org", "old_name:ua", "region:id"),
+        UniqueConstraint(
+            "name:org", "name:ua", "old_name:org", "old_name:ua", "region:id"
+        ),
     )
 
 
@@ -74,12 +70,10 @@ async def main():
                         insert(Region)
                         .on_conflict_do_update(
                             index_elements=("name",),
-                            set_={
-                                Region.name: Region.name # fake update
-                            }
+                            set_={Region.name: Region.name},  # fake update
                         )
                         .returning(Region.name, Region.id),
-                        ({"name": name} for name in regions)
+                        ({"name": name} for name in regions),
                     )
                 ).all()
             )
@@ -101,6 +95,7 @@ async def main():
             )
             await session.commit()
     await sqlite_async_engine.dispose()
+
 
 if __name__ == "__main__":
     asyncio.run(main())
