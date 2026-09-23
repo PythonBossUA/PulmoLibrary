@@ -11,7 +11,7 @@ _tl = token_bytes * (4 / 3)
 token_length = int(_tl) + (_tl > int(_tl))  # used in models
 
 translation_table = str.maketrans({"-": "A", "_": "B"})
-verification_re_index = "^(tg_id|token)"
+verification_re_index = "^(tg_id:|token:)"
 
 
 def generate_valid_token():
