@@ -15,8 +15,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-VERIFIED_FLAG = "AA"  # Approved by the Admin
-UNVERIFIED_FLAG = "RA"  # Requires approval
+VERIFIED_FLAG = "AA"  # Approved by Admin
+UNVERIFIED_FLAG = "RA"  # Requires Approval
 
 authors_books = Table(
     "authors_books",

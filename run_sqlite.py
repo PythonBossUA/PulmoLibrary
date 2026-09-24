@@ -33,7 +33,7 @@ class Settlement(Base):
 
     __table_args__ = (
         UniqueConstraint(
-    "region:id", "name:org", "name:ua", "old_name:org", "old_name:ua"
+            "region:id", "name:org", "name:ua", "old_name:org", "old_name:ua"
         ),
     )
 

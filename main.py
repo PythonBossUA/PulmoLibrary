@@ -1,4 +1,4 @@
-import jwt, orjson
+import jwt, orjson, logging
 
 from functools import wraps
 from contextlib import AsyncExitStack
@@ -32,6 +32,16 @@ _BAD_HEADERS = [
     (b"content-length", str(len(_BAD_BODY)).encode(encoding="ascii")),
 ]
 
+handler = logging.FileHandler("errors.log", mode="a", encoding="utf-8")
+handler.terminator = f"\n\n{"*" * 64}\n\n"
+
+logging.basicConfig(
+    level=logging.ERROR,
+    handlers=[handler],
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+
 
 def total_error_catcher(asgi_app: ASGIApp) -> ASGIApp:
     async def middleware(scope: Scope, receive: Receive, send: Send) -> None:
@@ -55,6 +65,7 @@ def total_error_catcher(asgi_app: ASGIApp) -> ASGIApp:
             if started:
                 raise
             try:
+                logging.exception("")
                 await send(
                     {
                         "type": "http.response.start",
@@ -133,7 +144,10 @@ def bad_request(message: str | None = None) -> dict:
         "status": 400,
     }
 
+
 apstf_remove = str.maketrans({"`": "a", "'": "a"})
+
+
 def normalize_name(name: str) -> str | None:
     return (
         name.strip().capitalize()
@@ -425,7 +439,10 @@ async def need_settlements(json: OrJson_Body, sqlite: Sqlite_Database):
         "region_id": <int>
     }
     """
-    if not (like_query := f"{json["settlement_startname"].capitalize()}%") or len(json["settlement_startname"]) < 2:
+    if (
+        not (like_query := f"{json['settlement_startname'].capitalize()}%")
+        or len(json["settlement_startname"]) < 2
+    ):
         return bad_request()
 
     return {
