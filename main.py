@@ -355,7 +355,7 @@ async def do_not_verify_telegram(json: OrJson_Body, psql: Psql_Database):
             User.sqlite_region_id == json["region_id"],
             User.sqlite_settlement_id == json["settlement_id"],
             User.verification != VERIFIED_FLAG,
-            ~User.verification.startswith("tg_id"),
+            ~User.verification.like("tg_id:%"),
         )
     )
     if psql_response.rowcount == 0:
@@ -390,7 +390,7 @@ async def user_is_verified(
             User.sqlite_region_id == json["region_id"],
             User.sqlite_settlement_id == json["settlement_id"],
             or_(
-                User.verification.startswith("tg_id"),
+                User.verification.like("tg_id:%"),
                 User.verification == VERIFIED_FLAG,
             ),
         )
@@ -425,7 +425,7 @@ async def need_settlements(json: OrJson_Body, sqlite: Sqlite_Database):
         "region_id": <int>
     }
     """
-    if not (prefix := json["settlement_startname"].capitalize()) or len(prefix) < 2:
+    if not (like_query := f"{json["settlement_startname"].capitalize()}%") or len(json["settlement_startname"]) < 2:
         return bad_request()
 
     return {
@@ -457,10 +457,10 @@ async def need_settlements(json: OrJson_Body, sqlite: Sqlite_Database):
                     ).where(
                         Settlement.region_id == json["region_id"],
                         or_(
-                            Settlement.name_org.startswith(prefix),
-                            Settlement.name_ua.startswith(prefix),
-                            Settlement.old_name_org.startswith(prefix),
-                            Settlement.old_name_ua.startswith(prefix),
+                            Settlement.name_org.like(like_query),
+                            Settlement.name_ua.like(like_query),
+                            Settlement.old_name_org.like(like_query),
+                            Settlement.old_name_ua.like(like_query),
                         ),
                     )
                 )

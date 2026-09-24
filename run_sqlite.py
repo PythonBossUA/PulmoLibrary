@@ -4,12 +4,8 @@ import csv
 # !!! No import from FastAPI project !!!
 from sqlalchemy import String, ForeignKey, Integer, UniqueConstraint
 from sqlalchemy.dialects.sqlite import insert
-from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase
-from database import sqlite_async_engine, sqlite_async_session
-
-
-class Base(DeclarativeBase):
-    pass
+from sqlalchemy.orm import Mapped, mapped_column
+from database import sqlite_async_engine, sqlite_async_session, Base
 
 
 class Region(Base):
@@ -37,7 +33,7 @@ class Settlement(Base):
 
     __table_args__ = (
         UniqueConstraint(
-            "name:org", "name:ua", "old_name:org", "old_name:ua", "region:id"
+    "region:id", "name:org", "name:ua", "old_name:org", "old_name:ua"
         ),
     )
 
